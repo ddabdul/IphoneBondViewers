@@ -260,36 +260,72 @@ class PortfolioManager {
         });
     }
 
-    // Maturity distribution: active bonds count per year
-    createMaturityChart() {
-        const canvas = document.getElementById('maturityChart');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        if (this.charts.maturity) this.charts.maturity.destroy();
+    // Maturity distribution per year
+createMaturityChart() {
+    const canvas = document.getElementById('maturityChart');
+    if (!canvas) return;
 
-        const maturityData = {};
-        this.getActiveBonds().forEach(b => {
-            const year = new Date(b.maturityDate).getFullYear();
-            maturityData[year] = (maturityData[year] || 0) + 1;
-        });
+    const ctx = canvas.getContext('2d');
+    if (this.charts.maturity) this.charts.maturity.destroy();
 
-        this.charts.maturity = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: Object.keys(maturityData),
-                datasets: [{
-                    label: 'Number of Bonds',
-                    data: Object.values(maturityData),
-                    backgroundColor: '#1FB8CD'
-                }]
+    // Sum principal by maturity year for ACTIVE bonds
+    const totals = {};
+    this.getActiveBonds().forEach(bond => {
+        const year = new Date(bond.maturityDate).getFullYear();
+        const par = Number(bond.parValue) || 0;
+        totals[year] = (totals[year] || 0) + par;
+    });
+
+    // Sort years for consistent axis order
+    const years = Object.keys(totals).sort((a, b) => Number(a) - Number(b));
+    const values = years.map(y => totals[y]);
+
+    this.charts.maturity = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: years,
+            datasets: [{
+                label: 'Principal maturing (€)',
+                data: values,
+                backgroundColor: '#1FB8CD'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        // Show currency on the axis
+                        callback: (value) =>
+                            new Intl.NumberFormat('de-DE', {
+                                style: 'currency',
+                                currency: 'EUR',
+                                maximumFractionDigits: 0
+                            }).format(value)
+                    }
+                }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true } }
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        // Show currency in tooltip
+                        label: (ctx) => {
+                            const v = ctx.parsed.y || 0;
+                            const formatted = new Intl.NumberFormat('de-DE', {
+                                style: 'currency',
+                                currency: 'EUR'
+                            }).format(v);
+                            return `Principal: ${formatted}`;
+                        }
+                    }
+                },
+                legend: { display: true }
             }
-        });
-    }
+        }
+    });
+}
 
     updateFilters() {
         const sourceBonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : this.data.bonds;
