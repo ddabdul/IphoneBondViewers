@@ -11,12 +11,21 @@ class PortfolioManager {
         this.charts = {};
         this.currentTab = 'dashboard';
         this.filters = {
-            bonds: { search: '', issuer: '', depot: '' },
+            bonds: { search: '', issuer: '', depot: '', excludeMatured: true },
             etfs: { search: '' },
             transactions: { search: '', type: '', date: '' }
         };
         
         this.init();
+    }
+
+    // Helpers to define “active” for analysis
+    isBondActive(bond, asOf = new Date()) {
+        const maturity = new Date(bond.maturityDate);
+        return maturity.getTime() > asOf.getTime();
+    }
+    getActiveBonds(asOf = new Date()) {
+        return this.data.bonds.filter(b => this.isBondActive(b, asOf));
     }
 
     init() {
@@ -87,6 +96,7 @@ class PortfolioManager {
         const transactionSearch = document.getElementById('transactionSearch');
         const typeFilter = document.getElementById('typeFilter');
         const dateFilter = document.getElementById('dateFilter');
+        const excludeToggle = document.getElementById('excludeMaturedToggle');
 
         if (bondSearch) bondSearch.addEventListener('input', (e) => this.updateFilter('bonds', 'search', e.target.value));
         if (issuerFilter) issuerFilter.addEventListener('change', (e) => this.updateFilter('bonds', 'issuer', e.target.value));
@@ -95,6 +105,15 @@ class PortfolioManager {
         if (transactionSearch) transactionSearch.addEventListener('input', (e) => this.updateFilter('transactions', 'search', e.target.value));
         if (typeFilter) typeFilter.addEventListener('change', (e) => this.updateFilter('transactions', 'type', e.target.value));
         if (dateFilter) dateFilter.addEventListener('change', (e) => this.updateFilter('transactions', 'date', e.target.value));
+
+        // Toggle to exclude matured bonds in the Bonds list
+        if (excludeToggle) {
+            // initialize state from checkbox if present
+            this.filters.bonds.excludeMatured = !!excludeToggle.checked;
+            excludeToggle.addEventListener('change', (e) => {
+                this.updateFilter('bonds', 'excludeMatured', e.target.checked);
+            });
+        }
 
         // Bond detail modal
         const closeBondDetail = document.getElementById('closeBondDetail');
@@ -272,8 +291,10 @@ class PortfolioManager {
         });
     }
 
+    // STATS: only active bonds
     calculateStats() {
-        const activeBonds = this.data.bonds.filter(bond => new Date(bond.maturityDate) > new Date());
+        const activeBonds = this.getActiveBonds();
+
         const totalParValue = activeBonds.reduce((sum, bond) => sum + bond.parValue, 0);
         const averageYield = activeBonds.length > 0 ? 
             activeBonds.reduce((sum, bond) => sum + bond.yieldToMaturity, 0) / activeBonds.length : 0;
@@ -321,6 +342,7 @@ class PortfolioManager {
         }, 100);
     }
 
+    // COMPOSITION: only active bonds contribute
     createCompositionChart() {
         const canvas = document.getElementById('compositionChart');
         if (!canvas) return;
@@ -332,7 +354,7 @@ class PortfolioManager {
         }
 
         const issuerData = {};
-        this.data.bonds.forEach(bond => {
+        this.getActiveBonds().forEach(bond => {
             issuerData[bond.issuer] = (issuerData[bond.issuer] || 0) + bond.parValue;
         });
 
@@ -363,6 +385,7 @@ class PortfolioManager {
         });
     }
 
+    // MATURITY DISTRIBUTION: only active bonds counted
     createMaturityChart() {
         const canvas = document.getElementById('maturityChart');
         if (!canvas) return;
@@ -374,7 +397,7 @@ class PortfolioManager {
         }
 
         const maturityData = {};
-        this.data.bonds.forEach(bond => {
+        this.getActiveBonds().forEach(bond => {
             const year = new Date(bond.maturityDate).getFullYear();
             maturityData[year] = (maturityData[year] || 0) + 1;
         });
@@ -402,25 +425,39 @@ class PortfolioManager {
     }
 
     updateFilters() {
+        // Build issuer & depot lists from currently displayed population
+        const sourceBonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : this.data.bonds;
+
         // Update issuer filter
-        const issuers = [...new Set(this.data.bonds.map(bond => bond.issuer))];
+        const issuers = [...new Set(sourceBonds.map(bond => bond.issuer))];
         const issuerSelect = document.getElementById('issuerFilter');
         if (issuerSelect) {
             issuerSelect.innerHTML = '<option value="">All Issuers</option>';
             issuers.forEach(issuer => {
                 issuerSelect.innerHTML += `<option value="${issuer}">${issuer}</option>`;
             });
+            // keep current selection if still present
+            if (this.filters.bonds.issuer && !issuers.includes(this.filters.bonds.issuer)) {
+                this.filters.bonds.issuer = '';
+            }
         }
 
         // Update depot filter
-        const depots = [...new Set(this.data.bonds.map(bond => bond.depotBank))];
+        const depots = [...new Set(sourceBonds.map(bond => bond.depotBank))];
         const depotSelect = document.getElementById('depotFilter');
         if (depotSelect) {
             depotSelect.innerHTML = '<option value="">All Depots</option>';
             depots.forEach(depot => {
                 depotSelect.innerHTML += `<option value="${depot}">${depot}</option>`;
             });
+            if (this.filters.bonds.depot && !depots.includes(this.filters.bonds.depot)) {
+                this.filters.bonds.depot = '';
+            }
         }
+
+        // Sync the toggle with state if it exists
+        const excludeToggle = document.getElementById('excludeMaturedToggle');
+        if (excludeToggle) excludeToggle.checked = !!this.filters.bonds.excludeMatured;
     }
 
     switchTab(tabName) {
@@ -451,6 +488,10 @@ class PortfolioManager {
         
         switch(type) {
             case 'bonds':
+                // When the matured toggle changes, also refresh issuer/depot lists
+                if (filterName === 'excludeMatured') {
+                    this.updateFilters();
+                }
                 this.renderBonds();
                 break;
             case 'etfs':
@@ -466,15 +507,17 @@ class PortfolioManager {
         const container = document.getElementById('bondsList');
         if (!container) return;
 
-        let bonds = [...this.data.bonds];
+        // Start from either active-only or all bonds based on toggle
+        let bonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : [...this.data.bonds];
 
-        // Apply filters
+        // Apply other filters
         const filters = this.filters.bonds;
         if (filters.search) {
+            const q = filters.search.toLowerCase();
             bonds = bonds.filter(bond => 
-                bond.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-                bond.issuer.toLowerCase().includes(filters.search.toLowerCase()) ||
-                bond.isin.toLowerCase().includes(filters.search.toLowerCase())
+                (bond.name || '').toLowerCase().includes(q) ||
+                (bond.issuer || '').toLowerCase().includes(q) ||
+                (bond.isin || '').toLowerCase().includes(q)
             );
         }
         if (filters.issuer) {
@@ -493,7 +536,7 @@ class PortfolioManager {
     }
 
     createBondCard(bond) {
-        const isActive = new Date(bond.maturityDate) > new Date();
+        const isActive = this.isBondActive(bond);
         const maturityDate = new Date(bond.maturityDate).toLocaleDateString();
         
         return `
@@ -586,9 +629,10 @@ class PortfolioManager {
         // Apply filters
         const filters = this.filters.transactions;
         if (filters.search) {
+            const q = filters.search.toLowerCase();
             transactions = transactions.filter(tx => 
-                tx.type.toLowerCase().includes(filters.search.toLowerCase()) ||
-                tx.id.toLowerCase().includes(filters.search.toLowerCase())
+                (tx.type || '').toLowerCase().includes(q) ||
+                (tx.id || '').toLowerCase().includes(q)
             );
         }
         if (filters.type) {
