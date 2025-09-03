@@ -72,7 +72,7 @@ class PortfolioManager {
                 return sum + (tx.amount || 0);
             }
             if (t === 'etfsell' || t === 'etfsale' || t === 'etf_sale') {
-                return sum - (tx.amount || 0);
+                return sum + (tx.amount || 0);
             }
             return sum;
         }, 0);
