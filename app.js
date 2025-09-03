@@ -64,19 +64,16 @@ class PortfolioManager {
         return this.imputedCleanPriceFromYTM(bond, asOf);
     }
 
-    // NEW: ETF net from transactions (buys minus sells), in currency
-    getETFValueFromTransactions() {
-        return this.data.transactions.reduce((sum, tx) => {
-            const t = (tx.type || '').toLowerCase();
-            if (t === 'etfbuy' || t === 'etfacquisition' || t === 'etf_acquisition') {
-                return sum + (tx.amount || 0);
-            }
-            if (t === 'etfsell' || t === 'etfsale' || t === 'etf_sale') {
-                return sum + (tx.amount || 0);
-            }
-            return sum;
-        }, 0);
+// NEW: ETF net from transactions (buys + sells-as-negative)
+getETFValueFromTransactions() {
+  return this.data.transactions.reduce((sum, tx) => {
+    const t = (tx.type || '').toLowerCase();
+    if (t === 'etfbuy' || t === 'etfsell') {
+      return sum + (Number(tx.amount) || 0); // ETFSell expected negative
     }
+    return sum;
+  }, 0);
+}
 
     // ===== Lifecycle =====
     init() {
