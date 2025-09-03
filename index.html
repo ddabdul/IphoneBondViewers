@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>Bond & ETF Portfolio Manager</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Main App Container -->
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>Portfolio Manager</h1>
+            <button class="upload-btn" id="uploadBtn">
+                <span>📁</span>
+                Upload Files
+            </button>
+        </header>
+
+        <!-- File Upload Modal -->
+        <div class="modal hidden" id="uploadModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Upload Portfolio Files</h3>
+                    <button class="modal-close" id="closeModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="upload-section">
+                        <label class="upload-label">
+                            <input type="file" id="bondsFile" accept=".json" />
+                            <span class="upload-text">📊 Bonds JSON</span>
+                        </label>
+                    </div>
+                    <div class="upload-section">
+                        <label class="upload-label">
+                            <input type="file" id="etfsFile" accept=".json" />
+                            <span class="upload-text">📈 ETFs JSON</span>
+                        </label>
+                    </div>
+                    <div class="upload-section">
+                        <label class="upload-label">
+                            <input type="file" id="transactionsFile" accept=".json" />
+                            <span class="upload-text">💼 Transactions JSON</span>
+                        </label>
+                    </div>
+                    <button class="btn btn--primary btn--full-width" id="loadSampleData">
+                        Load Sample Data
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Tab -->
+            <div class="tab-content active" id="dashboardTab">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalValue">€0</div>
+                        <div class="stat-label">Total Portfolio Value</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="activeBonds">0</div>
+                        <div class="stat-label">Active Bonds</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgYield">0%</div>
+                        <div class="stat-label">Average Yield</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="etfValue">€0</div>
+                        <div class="stat-label">ETF Value</div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="charts-section">
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Portfolio Composition</h3>
+                            <div class="chart-container" style="position: relative; height: 300px;">
+                                <canvas id="compositionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card__body">
+                            <h3>Maturity Distribution</h3>
+                            <div class="chart-container" style="position: relative; height: 300px;">
+                                <canvas id="maturityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bonds Tab -->
+            <div class="tab-content" id="bondsTab">
+                <div class="filters-section">
+                    <div class="search-container">
+                        <input type="text" class="form-control" placeholder="Search bonds..." id="bondSearch" />
+                    </div>
+                    <div class="filter-row">
+                        <select class="form-control" id="issuerFilter">
+                            <option value="">All Issuers</option>
+                        </select>
+                        <select class="form-control" id="depotFilter">
+                            <option value="">All Depots</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="bonds-list" id="bondsList">
+                    <!-- Bond cards will be populated here -->
+                </div>
+            </div>
+
+            <!-- ETFs Tab -->
+            <div class="tab-content" id="etfsTab">
+                <div class="search-container">
+                    <input type="text" class="form-control" placeholder="Search ETFs..." id="etfSearch" />
+                </div>
+                <div class="etfs-list" id="etfsList">
+                    <!-- ETF cards will be populated here -->
+                </div>
+            </div>
+
+            <!-- Transactions Tab -->
+            <div class="tab-content" id="transactionsTab">
+                <div class="filters-section">
+                    <div class="search-container">
+                        <input type="text" class="form-control" placeholder="Search transactions..." id="transactionSearch" />
+                    </div>
+                    <div class="filter-row">
+                        <select class="form-control" id="typeFilter">
+                            <option value="">All Types</option>
+                            <option value="BondPurchase">Bond Purchase</option>
+                            <option value="ETFBuy">ETF Buy</option>
+                        </select>
+                        <input type="date" class="form-control" id="dateFilter" />
+                    </div>
+                </div>
+                <div class="transactions-list" id="transactionsList">
+                    <!-- Transaction cards will be populated here -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-tab="dashboard">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </button>
+            <button class="nav-item" data-tab="bonds">
+                <span class="nav-icon">📋</span>
+                <span class="nav-label">Bonds</span>
+            </button>
+            <button class="nav-item" data-tab="etfs">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">ETFs</span>
+            </button>
+            <button class="nav-item" data-tab="transactions">
+                <span class="nav-icon">💼</span>
+                <span class="nav-label">Transactions</span>
+            </button>
+        </nav>
+
+        <!-- Bond Detail Modal -->
+        <div class="modal hidden" id="bondDetailModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="bondDetailTitle">Bond Details</h3>
+                    <button class="modal-close" id="closeBondDetail">&times;</button>
+                </div>
+                <div class="modal-body" id="bondDetailContent">
+                    <!-- Bond detail content will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay hidden" id="loadingOverlay">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Processing files...</div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState">
+            <div class="empty-icon">📁</div>
+            <h3>No Data Loaded</h3>
+            <p>Upload your JSON files to get started with portfolio analysis</p>
+            <button class="btn btn--primary" id="emptyUploadBtn">Upload Files</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
