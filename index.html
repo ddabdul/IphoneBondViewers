@@ -26,7 +26,6 @@
 </head>
 
 <body>
-    <!-- Main App Container -->
     <div class="app-container">
         <!-- Header -->
         <header class="app-header">
@@ -51,12 +50,6 @@
                             <span class="upload-text">📊 Bonds JSON</span>
                         </label>
                     </div>
-                    <div class="upload-section">
-                        <label class="upload-label">
-                            <input type="file" id="transactionsFile" accept=".json" />
-                            <span class="upload-text">💼 Transactions JSON</span>
-                        </label>
-                    </div>
                     <button class="btn btn--primary btn--full-width" id="loadSampleData">
                         Load Sample Data
                     </button>
@@ -69,11 +62,10 @@
             <!-- Dashboard Tab -->
             <div class="tab-content active" id="dashboardTab">
                 <div class="stats-grid">
-                      <div class="stat-card">
-                      <div class="stat-value" id="totalPrincipal">€0</div>
-                      <div class="stat-label">Total Principal</div>
-                </div>
-
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalPrincipal">€0</div>
+                        <div class="stat-label">Total Principal</div>
+                    </div>
                     <div class="stat-card">
                         <div class="stat-value" id="activeBonds">0</div>
                         <div class="stat-label">Active Bonds</div>
@@ -81,10 +73,6 @@
                     <div class="stat-card">
                         <div class="stat-value" id="avgYield">0%</div>
                         <div class="stat-label">Average Yield</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="etfValue">€0</div>
-                        <div class="stat-label">ETF Value</div>
                     </div>
                 </div>
 
@@ -123,7 +111,6 @@
                             <option value="">All Depots</option>
                         </select>
                     </div>
-                    <!-- New: Exclude matured toggle -->
                     <div class="filter-row">
                         <label class="toggle" style="display:flex; align-items:center; gap:.5rem;">
                             <input type="checkbox" id="excludeMaturedToggle" checked />
@@ -131,39 +118,7 @@
                         </label>
                     </div>
                 </div>
-                <div class="bonds-list" id="bondsList">
-                    <!-- Bond cards will be populated here -->
-                </div>
-            </div>
-
-            <!-- ETFs Tab -->
-            <div class="tab-content" id="etfsTab">
-                <div class="search-container">
-                    <input type="text" class="form-control" placeholder="Search ETFs..." id="etfSearch" />
-                </div>
-                <div class="etfs-list" id="etfsList">
-                    <!-- ETF cards will be populated here -->
-                </div>
-            </div>
-
-            <!-- Transactions Tab -->
-            <div class="tab-content" id="transactionsTab">
-                <div class="filters-section">
-                    <div class="search-container">
-                        <input type="text" class="form-control" placeholder="Search transactions..." id="transactionSearch" />
-                    </div>
-                    <div class="filter-row">
-                        <select class="form-control" id="typeFilter">
-                            <option value="">All Types</option>
-                            <option value="BondPurchase">Bond Purchase</option>
-                            <option value="ETFBuy">ETF Buy</option>
-                        </select>
-                        <input type="date" class="form-control" id="dateFilter" />
-                    </div>
-                </div>
-                <div class="transactions-list" id="transactionsList">
-                    <!-- Transaction cards will be populated here -->
-                </div>
+                <div class="bonds-list" id="bondsList"></div>
             </div>
         </main>
 
@@ -177,14 +132,6 @@
                 <span class="nav-icon">📋</span>
                 <span class="nav-label">Bonds</span>
             </button>
-            <button class="nav-item" data-tab="etfs">
-                <span class="nav-icon">📈</span>
-                <span class="nav-label">ETFs</span>
-            </button>
-            <button class="nav-item" data-tab="transactions">
-                <span class="nav-icon">💼</span>
-                <span class="nav-label">Transactions</span>
-            </button>
         </nav>
 
         <!-- Bond Detail Modal -->
@@ -194,9 +141,7 @@
                     <h3 id="bondDetailTitle">Bond Details</h3>
                     <button class="modal-close" id="closeBondDetail">&times;</button>
                 </div>
-                <div class="modal-body" id="bondDetailContent">
-                    <!-- Bond detail content will be populated here -->
-                </div>
+                <div class="modal-body" id="bondDetailContent"></div>
             </div>
         </div>
 
