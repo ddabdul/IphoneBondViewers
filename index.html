@@ -53,12 +53,6 @@
                     </div>
                     <div class="upload-section">
                         <label class="upload-label">
-                            <input type="file" id="etfsFile" accept=".json" />
-                            <span class="upload-text">📈 ETFs JSON</span>
-                        </label>
-                    </div>
-                    <div class="upload-section">
-                        <label class="upload-label">
                             <input type="file" id="transactionsFile" accept=".json" />
                             <span class="upload-text">💼 Transactions JSON</span>
                         </label>
@@ -75,10 +69,11 @@
             <!-- Dashboard Tab -->
             <div class="tab-content active" id="dashboardTab">
                 <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value" id="totalValue">€0</div>
-                        <div class="stat-label">Total Portfolio Value</div>
-                    </div>
+                      <div class="stat-card">
+                      <div class="stat-value" id="totalPrincipal">€0</div>
+                      <div class="stat-label">Total Principal</div>
+                </div>
+
                     <div class="stat-card">
                         <div class="stat-value" id="activeBonds">0</div>
                         <div class="stat-label">Active Bonds</div>
