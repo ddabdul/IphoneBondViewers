@@ -19,7 +19,8 @@ class PortfolioManager {
         this.init();
     }
 
-    // Helpers to define “active” for analysis
+    // ===== Helpers =====
+    // Define “active” for analysis
     isBondActive(bond, asOf = new Date()) {
         const maturity = new Date(bond.maturityDate);
         return maturity.getTime() > asOf.getTime();
@@ -28,6 +29,68 @@ class PortfolioManager {
         return this.data.bonds.filter(b => this.isBondActive(b, asOf));
     }
 
+    // Time in years between two dates (Actual/365.25 approx)
+    yearsBetween(d1, d2) {
+        const MS_PER_DAY = 1000 * 60 * 60 * 24;
+        return (d2 - d1) / MS_PER_DAY / 365.25;
+    }
+
+    // Build future cash flows from settlement (today) to maturity.
+    // Assumes annual coupons by default; set bond.couponFrequency = 2 for semi-annual, etc.
+    generateCashFlows(bond, asOf = new Date()) {
+        const par = bond.parValue || 0;
+        const freq = bond.couponFrequency || 1; // coupons per year
+        const cpnPerPeriod = (bond.couponRate / 100) * par / freq;
+
+        const mat = new Date(bond.maturityDate);
+        if (mat <= asOf) return []; // matured -> no future CFs
+
+        const years = this.yearsBetween(asOf, mat);
+        const periods = Math.max(1, Math.ceil(years * freq));
+
+        const cfs = [];
+        for (let k = 1; k <= periods; k++) {
+            const tYears = k / freq; // approximate timing
+            const amt = (k === periods) ? (cpnPerPeriod + par) : cpnPerPeriod;
+            cfs.push({ t: tYears, amount: amt });
+        }
+        return cfs;
+    }
+
+    // Price from a bond’s own YTM (if you don’t have currentPrice)
+    imputedCleanPriceFromYTM(bond, asOf = new Date()) {
+        const y = (bond.yieldToMaturity || 0) / 100;
+        const cfs = this.generateCashFlows(bond, asOf);
+        if (cfs.length === 0) return 0;
+
+        // Annual comp discount on year fractions
+        let pv = 0;
+        for (const { t, amount } of cfs) {
+            pv += amount / Math.pow(1 + y, t);
+        }
+        return pv;
+    }
+
+    // Market value to use for weighting: prefer bond.currentPrice, else imputed from YTM
+    bondMarketValue(bond, asOf = new Date()) {
+        if (typeof bond.currentPrice === 'number') return bond.currentPrice;
+        return this.imputedCleanPriceFromYTM(bond, asOf);
+    }
+
+    // Approximation: market-value-weighted average of YTMs (in %)
+    portfolioYTMWeighted(activeBonds, asOf = new Date()) {
+        const mvs = activeBonds.map(b => this.bondMarketValue(b, asOf));
+        const totalMV = mvs.reduce((s, x) => s + x, 0);
+        if (!totalMV) return 0;
+
+        let sum = 0;
+        for (let i = 0; i < activeBonds.length; i++) {
+            sum += (activeBonds[i].yieldToMaturity || 0) * (mvs[i] / totalMV);
+        }
+        return sum; // %
+    }
+
+    // ===== Lifecycle =====
     init() {
         this.setupEventListeners();
         this.showEmptyState();
@@ -108,7 +171,6 @@ class PortfolioManager {
 
         // Toggle to exclude matured bonds in the Bonds list
         if (excludeToggle) {
-            // initialize state from checkbox if present
             this.filters.bonds.excludeMatured = !!excludeToggle.checked;
             excludeToggle.addEventListener('change', (e) => {
                 this.updateFilter('bonds', 'excludeMatured', e.target.checked);
@@ -291,24 +353,33 @@ class PortfolioManager {
         });
     }
 
-    // STATS: only active bonds
+    // ===== Stats (no IRR, MV-weighted YTM only) =====
     calculateStats() {
-        const activeBonds = this.getActiveBonds();
+        const asOf = new Date();
+        const activeBonds = this.getActiveBonds(asOf);
 
-        const totalParValue = activeBonds.reduce((sum, bond) => sum + bond.parValue, 0);
-        const averageYield = activeBonds.length > 0 ? 
-            activeBonds.reduce((sum, bond) => sum + bond.yieldToMaturity, 0) / activeBonds.length : 0;
-        
+        // Legacy/simple average (equal-weighted) for reference
+        const avgYieldSimple = activeBonds.length > 0 ? 
+            activeBonds.reduce((sum, bond) => sum + (bond.yieldToMaturity || 0), 0) / activeBonds.length : 0;
+
+        // MV-weighted average YTM (approximation)
+        const ytmWeighted = this.portfolioYTMWeighted(activeBonds, asOf);
+
+        // ETF stats
         const etfValue = this.data.etfs.reduce((sum, etf) => sum + (etf.lastPrice * (etf.shares || 100)), 0);
         const totalShares = this.data.etfs.reduce((sum, etf) => sum + (etf.shares || 100), 0);
 
+        // Portfolio totals: use *market value* for bonds
+        const totalBondMV = activeBonds.reduce((s, b) => s + this.bondMarketValue(b, asOf), 0);
+
         this.data.stats = {
             activeBonds: activeBonds.length,
-            totalParValue: totalParValue,
-            averageYield: averageYield,
+            totalParValue: activeBonds.reduce((sum, bond) => sum + (bond.parValue || 0), 0),
+            averageYield: avgYieldSimple,               // equal-weighted (kept for continuity)
+            portfolioYTMWeighted: ytmWeighted,          // % MV-weighted (primary)
             etfValue: etfValue,
             totalShares: totalShares,
-            totalValue: totalParValue + etfValue
+            totalValue: totalBondMV + etfValue          // MV of bonds + MV of ETFs
         };
     }
 
@@ -332,6 +403,10 @@ class PortfolioManager {
         if (activeBonds) activeBonds.textContent = stats.activeBonds;
         if (avgYield) avgYield.textContent = stats.averageYield.toFixed(2) + '%';
         if (etfValue) etfValue.textContent = this.formatCurrency(stats.etfValue);
+
+        // OPTIONAL: If you add an element with id="portfolioYTMWeighted", show it:
+        // const ytmW = document.getElementById('portfolioYTMWeighted');
+        // if (ytmW) ytmW.textContent = stats.portfolioYTMWeighted.toFixed(2) + '%';
     }
 
     updateCharts() {
@@ -342,7 +417,7 @@ class PortfolioManager {
         }, 100);
     }
 
-    // COMPOSITION: only active bonds contribute
+    // COMPOSITION: only active bonds contribute (using par value for breakdown)
     createCompositionChart() {
         const canvas = document.getElementById('compositionChart');
         if (!canvas) return;
@@ -377,9 +452,7 @@ class PortfolioManager {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
+                    legend: { position: 'bottom' }
                 }
             }
         });
@@ -416,9 +489,7 @@ class PortfolioManager {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: {
-                        beginAtZero: true
-                    }
+                    y: { beginAtZero: true }
                 }
             }
         });
@@ -436,7 +507,6 @@ class PortfolioManager {
             issuers.forEach(issuer => {
                 issuerSelect.innerHTML += `<option value="${issuer}">${issuer}</option>`;
             });
-            // keep current selection if still present
             if (this.filters.bonds.issuer && !issuers.includes(this.filters.bonds.issuer)) {
                 this.filters.bonds.issuer = '';
             }
@@ -488,7 +558,6 @@ class PortfolioManager {
         
         switch(type) {
             case 'bonds':
-                // When the matured toggle changes, also refresh issuer/depot lists
                 if (filterName === 'excludeMatured') {
                     this.updateFilters();
                 }
