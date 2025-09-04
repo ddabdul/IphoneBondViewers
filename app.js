@@ -404,7 +404,7 @@ createMaturityChart() {
             <div class="bond-card">
                 <div class="bond-header">
                     <div class="bond-name">${bond.name}</div>
-                    <div class="bond-yield">${(bond.yieldToMaturity ?? 0).toFixed(2)}%</div>
+                    <div class="bond-yield">${(bond.couponRate ?? 0).toFixed(2)}%</div>
                 </div>
                 <div class="bond-details">
                     <div class="detail-item">
