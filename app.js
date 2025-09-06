@@ -404,12 +404,15 @@ createMaturityChart() {
             <div class="bond-card">
                 <div class="bond-header">
                     <div class="bond-name">${bond.name}</div>
-                    <div class="bond-yield">${(bond.couponRate ?? 0).toFixed(2)}%</div>
                 </div>
                 <div class="bond-details">
                     <div class="detail-item">
                         <div class="detail-label">Issuer</div>
                         <div class="detail-value">${bond.issuer}</div>
+                    </div>
+                        <div class="detail-item">
+                        <div class="detail-label">Coupon</div>
+                        <div class="detail-value">${(bond.couponRate ?? 0).toFixed(3)}%</div>
                     </div>
                     <div class="detail-item">
                         <div class="detail-label">Par Value</div>
