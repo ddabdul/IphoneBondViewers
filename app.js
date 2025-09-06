@@ -331,7 +331,7 @@ createMaturityChart() {
         const sourceBonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : this.data.bonds;
 
         // Issuers
-        const issuers = [...new Set(sourceBonds.map(b => b.issuer))];
+        const issuers = [...new Set(sourceBonds.map(b => b.issuer))].sort((a, b) =>a.localeCompare(b));
         const issuerSelect = document.getElementById('issuerFilter');
         if (issuerSelect) {
             issuerSelect.innerHTML = '<option value="">All Issuers</option>';
