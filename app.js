@@ -11,7 +11,43 @@ class PortfolioManager {
         this.filters = {
             bonds: { search: '', issuer: '', depot: '', excludeMatured: true }
         };
+
+        // CACHE KEYS
+        this.CACHE_KEY_BONDS = 'bonds_json_v1';
+        this.CACHE_KEY_TS    = 'bonds_cached_at';
+
         this.init();
+    }
+
+    // ---------- Cache helpers ----------
+    loadBondsFromCache() {
+        try {
+            const raw = localStorage.getItem(this.CACHE_KEY_BONDS);
+            if (!raw) return false;
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed) || parsed.length === 0) return false;
+            this.data.bonds = parsed;
+            return true;
+        } catch (e) {
+            console.warn('Failed to parse cached bonds:', e);
+            return false;
+        }
+    }
+
+    saveBondsToCache() {
+        try {
+            localStorage.setItem(this.CACHE_KEY_BONDS, JSON.stringify(this.data.bonds));
+            localStorage.setItem(this.CACHE_KEY_TS, String(Date.now()));
+        } catch (e) {
+            console.warn('Failed to save bonds cache:', e);
+        }
+    }
+
+    clearBondsCache() {
+        try {
+            localStorage.removeItem(this.CACHE_KEY_BONDS);
+            localStorage.removeItem(this.CACHE_KEY_TS);
+        } catch {}
     }
 
     // Active = not matured
@@ -24,7 +60,17 @@ class PortfolioManager {
 
     init() {
         this.setupEventListeners();
-        this.showEmptyState();
+
+        // Try to boot from cache first (no user action needed)
+        if (this.loadBondsFromCache()) {
+            this.calculateStats();
+            this.updateUI();
+            this.hideEmptyState();
+            this.switchTab('dashboard');
+        } else {
+            // No cache -> show empty state
+            this.showEmptyState();
+        }
     }
 
     setupEventListeners() {
@@ -58,9 +104,9 @@ class PortfolioManager {
         const depotFilter = document.getElementById('depotFilter');
         const excludeToggle = document.getElementById('excludeMaturedToggle');
 
-        if (bondSearch) bondSearch.addEventListener('input', e => this.updateFilter('bonds', 'search', e.target.value));
+        if (bondSearch)  bondSearch.addEventListener('input', e => this.updateFilter('bonds', 'search', e.target.value));
         if (issuerFilter) issuerFilter.addEventListener('change', e => this.updateFilter('bonds', 'issuer', e.target.value));
-        if (depotFilter) depotFilter.addEventListener('change', e => this.updateFilter('bonds', 'depot', e.target.value));
+        if (depotFilter)  depotFilter.addEventListener('change', e => this.updateFilter('bonds', 'depot', e.target.value));
 
         if (excludeToggle) {
             this.filters.bonds.excludeMatured = !!excludeToggle.checked;
@@ -144,6 +190,10 @@ class PortfolioManager {
         setTimeout(() => {
             try {
                 this.data.bonds = sampleData.bonds;
+
+                // Save to cache so it auto-loads next time
+                this.saveBondsToCache();
+
                 this.calculateStats();
                 this.updateUI();
                 this.hideLoading();
@@ -168,6 +218,9 @@ class PortfolioManager {
             this.data[type] = Array.isArray(data) ? data : [data];
 
             if (this.data.bonds.length > 0) {
+                // Save to cache so it auto-loads on next visit
+                this.saveBondsToCache();
+
                 this.calculateStats();
                 this.updateUI();
                 this.hideEmptyState();
@@ -220,8 +273,8 @@ class PortfolioManager {
         const avgYieldEl = document.getElementById('avgYield');
 
         if (totalPrincipalEl) totalPrincipalEl.textContent = this.formatCurrency(totalPrincipal || 0);
-        if (activeBondsEl) activeBondsEl.textContent = activeBonds ?? 0;
-        if (avgYieldEl) avgYieldEl.textContent = (averageYield ?? 0).toFixed(2) + '%';
+        if (activeBondsEl)  activeBondsEl.textContent = activeBonds ?? 0;
+        if (avgYieldEl)     avgYieldEl.textContent = (averageYield ?? 0).toFixed(2) + '%';
     }
 
     updateCharts() {
@@ -260,78 +313,74 @@ class PortfolioManager {
         });
     }
 
-    // Maturity distribution per year
-createMaturityChart() {
-    const canvas = document.getElementById('maturityChart');
-    if (!canvas) return;
+    // Principal maturing per year
+    createMaturityChart() {
+        const canvas = document.getElementById('maturityChart');
+        if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
-    if (this.charts.maturity) this.charts.maturity.destroy();
+        const ctx = canvas.getContext('2d');
+        if (this.charts.maturity) this.charts.maturity.destroy();
 
-    // Sum principal by maturity year for ACTIVE bonds
-    const totals = {};
-    this.getActiveBonds().forEach(bond => {
-        const year = new Date(bond.maturityDate).getFullYear();
-        const par = Number(bond.parValue) || 0;
-        totals[year] = (totals[year] || 0) + par;
-    });
+        const totals = {};
+        this.getActiveBonds().forEach(bond => {
+            const year = new Date(bond.maturityDate).getFullYear();
+            const par = Number(bond.parValue) || 0;
+            totals[year] = (totals[year] || 0) + par;
+        });
 
-    // Sort years for consistent axis order
-    const years = Object.keys(totals).sort((a, b) => Number(a) - Number(b));
-    const values = years.map(y => totals[y]);
+        const years = Object.keys(totals).sort((a, b) => Number(a) - Number(b));
+        const values = years.map(y => totals[y]);
 
-    this.charts.maturity = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: years,
-            datasets: [{
-                label: 'Principal maturing (€)',
-                data: values,
-                backgroundColor: '#1FB8CD'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        // Show currency on the axis
-                        callback: (value) =>
-                            new Intl.NumberFormat('de-DE', {
-                                style: 'currency',
-                                currency: 'EUR',
-                                maximumFractionDigits: 0
-                            }).format(value)
-                    }
-                }
+        this.charts.maturity = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: years,
+                datasets: [{
+                    label: 'Principal maturing (€)',
+                    data: values,
+                    backgroundColor: '#1FB8CD'
+                }]
             },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        // Show currency in tooltip
-                        label: (ctx) => {
-                            const v = ctx.parsed.y || 0;
-                            const formatted = new Intl.NumberFormat('de-DE', {
-                                style: 'currency',
-                                currency: 'EUR'
-                            }).format(v);
-                            return `Principal: ${formatted}`;
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) =>
+                                new Intl.NumberFormat('de-DE', {
+                                    style: 'currency',
+                                    currency: 'EUR',
+                                    maximumFractionDigits: 0
+                                }).format(value)
                         }
                     }
                 },
-                legend: { display: true }
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const v = ctx.parsed.y || 0;
+                                const formatted = new Intl.NumberFormat('de-DE', {
+                                    style: 'currency',
+                                    currency: 'EUR'
+                                }).format(v);
+                                return `Principal: ${formatted}`;
+                            }
+                        }
+                    },
+                    legend: { display: true }
+                }
             }
-        }
-    });
-}
+        });
+    }
 
     updateFilters() {
         const sourceBonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : this.data.bonds;
 
         // Issuers
-        const issuers = [...new Set(sourceBonds.map(b => b.issuer))].sort((a, b) =>a.localeCompare(b));
+        const issuers = [...new Set(sourceBonds.map(b => b.issuer))].sort((a, b) => a.localeCompare(b));
         const issuerSelect = document.getElementById('issuerFilter');
         if (issuerSelect) {
             issuerSelect.innerHTML = '<option value="">All Issuers</option>';
@@ -373,52 +422,42 @@ createMaturityChart() {
         }
     }
 
-   renderBonds() {
-    const container = document.getElementById('bondsList');
-    if (!container) return;
+    renderBonds() {
+        const container = document.getElementById('bondsList');
+        if (!container) return;
 
-    // Start from active-only or all bonds based on toggle
-    let bonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : [...this.data.bonds];
+        let bonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : [...this.data.bonds];
 
-    // Apply text / dropdown filters
-    const f = this.filters.bonds;
-    if (f.search) {
-        const q = f.search.toLowerCase();
-        bonds = bonds.filter(b =>
-            (b.name || '').toLowerCase().includes(q) ||
-            (b.issuer || '').toLowerCase().includes(q) ||
-            (b.isin || '').toLowerCase().includes(q)
-        );
+        const f = this.filters.bonds;
+        if (f.search) {
+            const q = f.search.toLowerCase();
+            bonds = bonds.filter(b =>
+                (b.name || '').toLowerCase().includes(q) ||
+                (b.issuer || '').toLowerCase().includes(q) ||
+                (b.isin || '').toLowerCase().includes(q)
+            );
+        }
+        if (f.issuer) bonds = bonds.filter(b => b.issuer === f.issuer);
+        if (f.depot)  bonds = bonds.filter(b => b.depotBank === f.depot);
+
+        // Optional: sort by maturity soonest-first (keeps active above matured)
+        const now = new Date();
+        bonds.sort((a, b) => {
+            const aActive = this.isBondActive(a, now);
+            const bActive = this.isBondActive(b, now);
+            if (aActive !== bActive) return aActive ? -1 : 1;
+            const aTime = new Date(a.maturityDate).getTime();
+            const bTime = new Date(b.maturityDate).getTime();
+            const aVal = Number.isFinite(aTime) ? aTime : Infinity;
+            const bVal = Number.isFinite(bTime) ? bTime : Infinity;
+            return aVal - bVal;
+        });
+
+        container.innerHTML = bonds.map(b => this.createBondCard(b)).join('');
+        container.querySelectorAll('.bond-card').forEach((card, i) => {
+            card.addEventListener('click', () => this.showBondDetails(bonds[i]));
+        });
     }
-    if (f.issuer) bonds = bonds.filter(b => b.issuer === f.issuer);
-    if (f.depot)  bonds = bonds.filter(b => b.depotBank === f.depot);
-
-    // === NEW: sort by maturity, soonest first; keep active bonds above matured ===
-    const now = new Date();
-    bonds.sort((a, b) => {
-        const aActive = this.isBondActive(a, now);
-        const bActive = this.isBondActive(b, now);
-        if (aActive !== bActive) return aActive ? -1 : 1; // active first
-
-        const aTime = new Date(a.maturityDate).getTime();
-        const bTime = new Date(b.maturityDate).getTime();
-
-        // handle invalid/missing dates by pushing them to the bottom
-        const aVal = Number.isFinite(aTime) ? aTime : Infinity;
-        const bVal = Number.isFinite(bTime) ? bTime : Infinity;
-
-        return aVal - bVal; // earliest maturity on top
-    });
-
-    // Render
-    container.innerHTML = bonds.map(b => this.createBondCard(b)).join('');
-
-    // Click handlers
-    container.querySelectorAll('.bond-card').forEach((card, i) => {
-        card.addEventListener('click', () => this.showBondDetails(bonds[i]));
-    });
-}
-
 
     createBondCard(bond) {
         const isActive = this.isBondActive(bond);
@@ -433,7 +472,7 @@ createMaturityChart() {
                         <div class="detail-label">Issuer</div>
                         <div class="detail-value">${bond.issuer}</div>
                     </div>
-                        <div class="detail-item">
+                    <div class="detail-item">
                         <div class="detail-label">Coupon</div>
                         <div class="detail-value">${(bond.couponRate ?? 0).toFixed(3)}%</div>
                     </div>
