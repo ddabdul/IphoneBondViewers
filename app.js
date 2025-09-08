@@ -373,29 +373,52 @@ createMaturityChart() {
         }
     }
 
-    renderBonds() {
-        const container = document.getElementById('bondsList');
-        if (!container) return;
+   renderBonds() {
+    const container = document.getElementById('bondsList');
+    if (!container) return;
 
-        let bonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : [...this.data.bonds];
+    // Start from active-only or all bonds based on toggle
+    let bonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : [...this.data.bonds];
 
-        const f = this.filters.bonds;
-        if (f.search) {
-            const q = f.search.toLowerCase();
-            bonds = bonds.filter(b =>
-                (b.name || '').toLowerCase().includes(q) ||
-                (b.issuer || '').toLowerCase().includes(q) ||
-                (b.isin || '').toLowerCase().includes(q)
-            );
-        }
-        if (f.issuer) bonds = bonds.filter(b => b.issuer === f.issuer);
-        if (f.depot) bonds = bonds.filter(b => b.depotBank === f.depot);
-
-        container.innerHTML = bonds.map(b => this.createBondCard(b)).join('');
-        container.querySelectorAll('.bond-card').forEach((card, i) => {
-            card.addEventListener('click', () => this.showBondDetails(bonds[i]));
-        });
+    // Apply text / dropdown filters
+    const f = this.filters.bonds;
+    if (f.search) {
+        const q = f.search.toLowerCase();
+        bonds = bonds.filter(b =>
+            (b.name || '').toLowerCase().includes(q) ||
+            (b.issuer || '').toLowerCase().includes(q) ||
+            (b.isin || '').toLowerCase().includes(q)
+        );
     }
+    if (f.issuer) bonds = bonds.filter(b => b.issuer === f.issuer);
+    if (f.depot)  bonds = bonds.filter(b => b.depotBank === f.depot);
+
+    // === NEW: sort by maturity, soonest first; keep active bonds above matured ===
+    const now = new Date();
+    bonds.sort((a, b) => {
+        const aActive = this.isBondActive(a, now);
+        const bActive = this.isBondActive(b, now);
+        if (aActive !== bActive) return aActive ? -1 : 1; // active first
+
+        const aTime = new Date(a.maturityDate).getTime();
+        const bTime = new Date(b.maturityDate).getTime();
+
+        // handle invalid/missing dates by pushing them to the bottom
+        const aVal = Number.isFinite(aTime) ? aTime : Infinity;
+        const bVal = Number.isFinite(bTime) ? bTime : Infinity;
+
+        return aVal - bVal; // earliest maturity on top
+    });
+
+    // Render
+    container.innerHTML = bonds.map(b => this.createBondCard(b)).join('');
+
+    // Click handlers
+    container.querySelectorAll('.bond-card').forEach((card, i) => {
+        card.addEventListener('click', () => this.showBondDetails(bonds[i]));
+    });
+}
+
 
     createBondCard(bond) {
         const isActive = this.isBondActive(bond);
