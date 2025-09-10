@@ -279,11 +279,18 @@ class PortfolioManager {
     }
 
     updateCharts() {
-        setTimeout(() => {
+    // Destroy old charts defensively (if any)
+    if (this.charts.composition) { this.charts.composition.destroy(); this.charts.composition = null; }
+    if (this.charts.maturity)    { this.charts.maturity.destroy();    this.charts.maturity    = null; }
+
+    // Wait for the tab to be visible and layout to complete
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
             this.createCompositionChart();
             this.createMaturityChart();
-        }, 100);
-    }
+        });
+    });
+}
 
     // Composition: active bonds by par per issuer
     createCompositionChart() {
