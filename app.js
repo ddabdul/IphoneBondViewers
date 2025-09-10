@@ -225,7 +225,8 @@ class PortfolioManager {
                 this.updateUI();
                 this.hideEmptyState();
                 this.closeUploadModal();
-                this.switchTab('dashboard');
+                this.switchTab('this.switchTab('dashboard');
+                 this.updateCharts(); // <- force rebuild when the tab is visible
             }
         } catch (error) {
             console.error('Error reading file:', error);
