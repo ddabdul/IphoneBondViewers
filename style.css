@@ -1286,4 +1286,11 @@ select.form-control {
   .stat-card {
     border-width: 2px;
   }
+
+  .table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: .5rem .75rem; border-bottom: 1px solid #eee; }
+.table .num { text-align: right; }
+.table .total-row td { font-weight: 600; border-top: 2px solid #ddd; }
+.empty-table { padding: .75rem; color: #666; }
+
 }
