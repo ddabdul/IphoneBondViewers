@@ -217,17 +217,19 @@ class PortfolioManager {
             const data = JSON.parse(text);
             this.data[type] = Array.isArray(data) ? data : [data];
 
-            if (this.data.bonds.length > 0) {
-                // Save to cache so it auto-loads on next visit
-                this.saveBondsToCache();
-
-                this.calculateStats();
-                this.updateUI();
-                this.hideEmptyState();
-                this.closeUploadModal();
-                this.switchTab('this.switchTab('dashboard');
-                 this.updateCharts(); // <- force rebuild when the tab is visible
-            }
+        if (this.data.bonds.length > 0) {
+            // Save to cache so it auto-loads on next visit
+            this.saveBondsToCache();
+        
+            this.calculateStats();
+            this.updateUI();
+            this.hideEmptyState();
+            this.closeUploadModal();
+        
+            // Show dashboard and rebuild charts when visible
+            this.switchTab('dashboard');
+            this.updateCharts();
+        }
         } catch (error) {
             console.error('Error reading file:', error);
             alert('Error reading file: ' + error.message);
