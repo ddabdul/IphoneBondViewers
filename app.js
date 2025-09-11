@@ -280,19 +280,19 @@ class PortfolioManager {
         if (avgYieldEl)     avgYieldEl.textContent = (averageYield ?? 0).toFixed(2) + '%';
     }
 
-    updateCharts() {
-    // Destroy old charts defensively (if any)
+updateCharts() {
+    // Destroy the composition chart if present (table doesn’t need destruction)
     if (this.charts.composition) { this.charts.composition.destroy(); this.charts.composition = null; }
-    if (this.charts.maturity)    { this.charts.maturity.destroy();    this.charts.maturity    = null; }
 
-    // Wait for the tab to be visible and layout to complete
+    // Wait for layout to settle (ensures container is visible)
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             this.createCompositionChart();
-            this.createMaturityChart();
+            this.createMaturityTable(); // <- build the table instead of a chart
         });
     });
 }
+
 
     // Composition: active bonds by par per issuer
     createCompositionChart() {
@@ -385,6 +385,71 @@ class PortfolioManager {
             }
         });
     }
+
+    // Table of maturities
+
+    createMaturityTable() {
+    const container = document.getElementById('maturityTableContainer');
+    if (!container) return;
+
+    // Build totals per year from ACTIVE (non-matured) bonds
+    const byYear = {};
+    const active = this.getActiveBonds();
+    active.forEach(b => {
+        const year = new Date(b.maturityDate).getFullYear();
+        const par  = Number(b.parValue) || 0;
+        byYear[year] = (byYear[year] || 0) + par;
+    });
+
+    const years = Object.keys(byYear).map(Number).sort((a,b) => a - b);
+    const totalPrincipal = active.reduce((s, b) => s + (Number(b.parValue) || 0), 0);
+
+    // If nothing to show
+    if (years.length === 0) {
+        container.innerHTML = `<div class="empty-table">No upcoming maturities.</div>`;
+        return;
+    }
+
+    // Helpers
+    const fmtEUR = (v) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
+    const fmtPct = (v) => (v * 100).toFixed(2) + '%';
+
+    // Build table HTML
+    let rowsHtml = years.map(y => {
+        const amt = byYear[y];
+        const share = totalPrincipal > 0 ? (amt / totalPrincipal) : 0;
+        return `
+            <tr>
+                <td>${y}</td>
+                <td class="num">${fmtEUR(amt)}</td>
+                <td class="num">${fmtPct(share)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    // Totals row
+    rowsHtml += `
+        <tr class="total-row">
+            <td>Total</td>
+            <td class="num">${fmtEUR(totalPrincipal)}</td>
+            <td class="num">${fmtPct(1)}</td>
+        </tr>
+    `;
+
+    container.innerHTML = `
+        <table class="table table--compact">
+            <thead>
+                <tr>
+                    <th>Year</th>
+                    <th>Principal (EUR)</th>
+                    <th>Share of Total</th>
+                </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+    `;
+}
+
 
     updateFilters() {
         const sourceBonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : this.data.bonds;
