@@ -1294,3 +1294,33 @@ select.form-control {
 .empty-table { padding: .75rem; color: #666; }
 
 }
+
+/* Tables (applies in all modes) */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th,
+.table td {
+  padding: .5rem .75rem;
+  border-bottom: 1px solid #eee;
+}
+
+/* Right-align numbers */
+.table .num {
+  text-align: right;
+  white-space: nowrap;                 /* keep 1.500 together */
+  font-variant-numeric: tabular-nums;  /* monospaced digits for better column scan */
+}
+
+/* Make totals stand out */
+.table .total-row td {
+  font-weight: 600;
+  border-top: 2px solid #ddd;
+}
+
+/* Optional: right-align numeric headers too */
+.table th:nth-child(2),
+.table th:nth-child(3),
+.table th:nth-child(4),
+.table th:nth-child(5) { text-align: right; }
