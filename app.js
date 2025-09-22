@@ -324,67 +324,96 @@ updateCharts() {
     }
 
     // Principal maturing per year
-    createMaturityChart() {
-        const canvas = document.getElementById('maturityChart');
-        if (!canvas) return;
+    // Table of maturities with interest & yield per year (values in kEUR)
+createMaturityTable() {
+    const container = document.getElementById('maturityTableContainer');
+    if (!container) return;
 
-        const ctx = canvas.getContext('2d');
-        if (this.charts.maturity) this.charts.maturity.destroy();
+    const active = this.getActiveBonds();
+    const byMaturityYear = {};
+    active.forEach(b => {
+        const year = new Date(b.maturityDate).getFullYear();
+        const par  = Number(b.parValue) || 0;
+        byMaturityYear[year] = (byMaturityYear[year] || 0) + par;
+    });
 
-        const totals = {};
-        this.getActiveBonds().forEach(bond => {
-            const year = new Date(bond.maturityDate).getFullYear();
-            const par = Number(bond.parValue) || 0;
-            totals[year] = (totals[year] || 0) + par;
-        });
+    const years = Object.keys(byMaturityYear).map(Number).sort((a,b) => a - b);
 
-        const years = Object.keys(totals).sort((a, b) => Number(a) - Number(b));
-        const values = years.map(y => totals[y]);
-
-        this.charts.maturity = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: years,
-                datasets: [{
-                    label: 'Principal maturing (€)',
-                    data: values,
-                    backgroundColor: '#1FB8CD'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: (value) =>
-                                new Intl.NumberFormat('de-DE', {
-                                    style: 'currency',
-                                    currency: 'EUR',
-                                    maximumFractionDigits: 0
-                                }).format(value)
-                        }
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: (ctx) => {
-                                const v = ctx.parsed.y || 0;
-                                const formatted = new Intl.NumberFormat('de-DE', {
-                                    style: 'currency',
-                                    currency: 'EUR'
-                                }).format(v);
-                                return `Principal: ${formatted}`;
-                            }
-                        }
-                    },
-                    legend: { display: true }
-                }
-            }
-        });
+    if (years.length === 0) {
+        container.innerHTML = `<div class="empty-table">No upcoming maturities.</div>`;
+        return;
     }
+
+    // Formatters (divide by 1000 to show kEUR)
+    const fmtKEUR = (v) =>
+        new Intl.NumberFormat('de-DE', {
+            style: 'currency',
+            currency: 'EUR',
+            maximumFractionDigits: 0
+        }).format(v / 1000) + 'k';   // append "k"
+
+    const fmtPct = (v) => (v * 100).toFixed(2) + '%';
+
+    const principalOutstandingInYear = (Y) =>
+        active.reduce((sum, b) => {
+            const matY = new Date(b.maturityDate).getFullYear();
+            const par  = Number(b.parValue) || 0;
+            return matY >= Y ? sum + par : sum;
+        }, 0);
+
+    const interestInYear = (Y) =>
+        active.reduce((sum, b) => {
+            const matY = new Date(b.maturityDate).getFullYear();
+            const par  = Number(b.parValue) || 0;
+            const r    = Number(b.couponRate) || 0;
+            return matY >= Y ? sum + par * (r / 100) : sum;
+        }, 0);
+
+    const totalPrincipalActive = active.reduce((s, b) => s + (Number(b.parValue) || 0), 0);
+
+    let rowsHtml = years.map(y => {
+        const maturingThisYear = byMaturityYear[y] || 0;
+        const principalOutY    = principalOutstandingInYear(y);
+        const interestY        = interestInYear(y);
+        const shareOfTotal     = totalPrincipalActive > 0 ? (maturingThisYear / totalPrincipalActive) : 0;
+        const yieldOnOutY      = principalOutY > 0 ? (interestY / principalOutY) : 0;
+
+        return `
+            <tr>
+                <td>${y}</td>
+                <td class="num">${fmtKEUR(maturingThisYear)}</td>
+                <td class="num">${fmtPct(shareOfTotal)}</td>
+                <td class="num">${fmtKEUR(interestY)}</td>
+                <td class="num">${fmtPct(yieldOnOutY)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    rowsHtml += `
+        <tr class="total-row">
+            <td>Total</td>
+            <td class="num">${fmtKEUR(totalPrincipalActive)}</td>
+            <td class="num">${fmtPct(1)}</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
+        </tr>
+    `;
+
+    container.innerHTML = `
+        <table class="table table--compact">
+            <thead>
+                <tr>
+                    <th>Year</th>
+                    <th>Principal (kEUR)</th>
+                    <th>Share of Total</th>
+                    <th>Interest (kEUR)</th>
+                    <th>Yield on Outstanding</th>
+                </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+    `;
+}
 
     // Table of maturities
 
