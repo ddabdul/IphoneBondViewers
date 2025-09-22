@@ -345,11 +345,14 @@ createMaturityTable() {
     }
 
     // Formatters (divide by 1000 to show kEUR)
-    const fmtKEUR = (v) =>
-        new Intl.NumberFormat('de-DE', {
-            style: 'currency',
-            maximumFractionDigits: 0
-        }).format(v / 1000) ;  
+    const fmtKEUR = (v) => {
+  const k = v / 1000;
+  const useDecimals = Math.abs(k) < 100;
+  return new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: useDecimals ? 1 : 0,
+    maximumFractionDigits: useDecimals ? 1 : 0
+  }).format(k);
+};  
 
     const fmtPct = (v) => (v * 100).toFixed(0) + '%';
 
