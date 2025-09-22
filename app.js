@@ -404,9 +404,9 @@ createMaturityTable() {
                 <tr>
                     <th>Year</th>
                     <th>Principal (kEUR)</th>
-                    <th>Share of Total</th>
+                    <th>Percentage</th>
                     <th>Interest (kEUR)</th>
-                    <th>Yield on Outstanding</th>
+                    <th>Yield</th>
                 </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
