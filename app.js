@@ -388,21 +388,22 @@ updateCharts() {
 
     // Table of maturities
 
-    createMaturityTable() {
+  // Table of maturities with interest & yield per year
+createMaturityTable() {
     const container = document.getElementById('maturityTableContainer');
     if (!container) return;
 
-    // Build totals per year from ACTIVE (non-matured) bonds
-    const byYear = {};
+    // Build totals per maturity year from ACTIVE (non-matured) bonds
     const active = this.getActiveBonds();
+    const byMaturityYear = {};
     active.forEach(b => {
         const year = new Date(b.maturityDate).getFullYear();
         const par  = Number(b.parValue) || 0;
-        byYear[year] = (byYear[year] || 0) + par;
+        byMaturityYear[year] = (byMaturityYear[year] || 0) + par;
     });
 
-    const years = Object.keys(byYear).map(Number).sort((a,b) => a - b);
-    const totalPrincipal = active.reduce((s, b) => s + (Number(b.parValue) || 0), 0);
+    // Years shown = years that have maturities (as before)
+    const years = Object.keys(byMaturityYear).map(Number).sort((a,b) => a - b);
 
     // If nothing to show
     if (years.length === 0) {
@@ -410,29 +411,57 @@ updateCharts() {
         return;
     }
 
-    // Helpers
+    // Helpers & aggregates
     const fmtEUR = (v) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
     const fmtPct = (v) => (v * 100).toFixed(2) + '%';
 
-    // Build table HTML
+    // Principal outstanding in a given calendar year Y
+    const principalOutstandingInYear = (Y) =>
+        active.reduce((sum, b) => {
+            const matY = new Date(b.maturityDate).getFullYear();
+            const par  = Number(b.parValue) || 0;
+            return matY >= Y ? sum + par : sum;
+        }, 0);
+
+    // Total interest expected in calendar year Y
+    const interestInYear = (Y) =>
+        active.reduce((sum, b) => {
+            const matY = new Date(b.maturityDate).getFullYear();
+            const par  = Number(b.parValue) || 0;
+            const r    = Number(b.couponRate) || 0; // percent
+            // Bond pays coupon in Y if still outstanding in Y
+            return matY >= Y ? sum + par * (r / 100) : sum;
+        }, 0);
+
+    const totalPrincipalActive = active.reduce((s, b) => s + (Number(b.parValue) || 0), 0);
+
+    // Build table rows
     let rowsHtml = years.map(y => {
-        const amt = byYear[y];
-        const share = totalPrincipal > 0 ? (amt / totalPrincipal) : 0;
+        const maturingThisYear = byMaturityYear[y] || 0; // as before (principal maturing that year)
+        const principalOutY    = principalOutstandingInYear(y);
+        const interestY        = interestInYear(y);
+        const shareOfTotal     = totalPrincipalActive > 0 ? (maturingThisYear / totalPrincipalActive) : 0;
+        const yieldOnOutY      = principalOutY > 0 ? (interestY / principalOutY) : 0;
+
         return `
             <tr>
                 <td>${y}</td>
-                <td class="num">${fmtEUR(amt)}</td>
-                <td class="num">${fmtPct(share)}</td>
+                <td class="num">${fmtEUR(maturingThisYear)}</td>
+                <td class="num">${fmtPct(shareOfTotal)}</td>
+                <td class="num">${fmtEUR(interestY)}</td>
+                <td class="num">${fmtPct(yieldOnOutY)}</td>
             </tr>
         `;
     }).join('');
 
-    // Totals row
+    // Totals row (keep original totals; interest/yield totals aren't meaningful aggregates here)
     rowsHtml += `
         <tr class="total-row">
             <td>Total</td>
-            <td class="num">${fmtEUR(totalPrincipal)}</td>
+            <td class="num">${fmtEUR(totalPrincipalActive)}</td>
             <td class="num">${fmtPct(1)}</td>
+            <td class="num">—</td>
+            <td class="num">—</td>
         </tr>
     `;
 
@@ -443,6 +472,8 @@ updateCharts() {
                     <th>Year</th>
                     <th>Principal (EUR)</th>
                     <th>Share of Total</th>
+                    <th>Interest (EUR)</th>
+                    <th>Yield on Outstanding</th>
                 </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
