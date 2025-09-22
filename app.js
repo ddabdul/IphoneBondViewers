@@ -348,11 +348,10 @@ createMaturityTable() {
     const fmtKEUR = (v) =>
         new Intl.NumberFormat('de-DE', {
             style: 'currency',
-            currency: 'EUR',
             maximumFractionDigits: 0
-        }).format(v / 1000) + 'k';   // append "k"
+        }).format(v / 1000) ;  
 
-    const fmtPct = (v) => (v * 100).toFixed(2) + '%';
+    const fmtPct = (v) => (v * 100).toFixed(0) + '%';
 
     const principalOutstandingInYear = (Y) =>
         active.reduce((sum, b) => {
