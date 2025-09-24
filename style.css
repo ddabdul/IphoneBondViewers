@@ -1332,3 +1332,65 @@ select.form-control {
 .table th:nth-child(3),
 .table th:nth-child(4),
 .table th:nth-child(5) { text-align: right; }
+
+/* Card-style table on small screens */
+@media (max-width: 480px) {
+  .table {
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .table thead {
+    display: none; /* hide headers on mobile */
+  }
+
+  .table tr {
+    display: block;
+    background: var(--color-surface);
+    border: 1px solid var(--color-card-border);
+    border-radius: var(--radius-base);
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .table td {
+    display: grid;
+    grid-template-columns: 48% 52%;   /* label | value */
+    gap: 8px;
+    padding: 10px 12px;               /* compact padding */
+    border: none;                     /* remove row separators */
+    align-items: center;
+  }
+
+  .table td::before {
+    content: attr(data-label);        /* show the column label */
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    text-align: left;
+  }
+
+  .table .num {
+    text-align: right;                /* keep numbers right-aligned */
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .table .total-row {
+    border-width: 2px;
+  }
+
+  .table .total-row td {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  /* tighter overall typography on small screens */
+  .table,
+  .table td,
+  .table td::before {
+    font-size: 12px;
+  }
+}
