@@ -324,98 +324,106 @@ updateCharts() {
     }
 
     // Principal maturing per year
-    // Table of maturities with interest & yield per year (values in kEUR)
-createMaturityTable() {
-    const container = document.getElementById('maturityTableContainer');
-    if (!container) return;
-
-    const active = this.getActiveBonds();
-    const byMaturityYear = {};
-    active.forEach(b => {
-        const year = new Date(b.maturityDate).getFullYear();
-        const par  = Number(b.parValue) || 0;
-        byMaturityYear[year] = (byMaturityYear[year] || 0) + par;
-    });
-
-    const years = Object.keys(byMaturityYear).map(Number).sort((a,b) => a - b);
-
-    if (years.length === 0) {
-        container.innerHTML = `<div class="empty-table">No upcoming maturities.</div>`;
-        return;
-    }
-
-    // Formatters (divide by 1000 to show kEUR)
-    const fmtKEUR = (v) => {
-  const k = v / 1000;
-  const useDecimals = Math.abs(k) < 100;
-  return new Intl.NumberFormat('de-DE', {
-    minimumFractionDigits: useDecimals ? 1 : 0,
-    maximumFractionDigits: useDecimals ? 1 : 0
-  }).format(k);
-};  
-
-    const fmtPct = (v) => (v * 100).toFixed(0) + '%';
-
-    const principalOutstandingInYear = (Y) =>
-        active.reduce((sum, b) => {
-            const matY = new Date(b.maturityDate).getFullYear();
+        
+        // Table of maturities with interest & yield per year (values in kEUR)
+        createMaturityTable() {
+          const container = document.getElementById('maturityTableContainer');
+          if (!container) return;
+        
+          const active = this.getActiveBonds();
+          const byMaturityYear = {};
+          active.forEach(b => {
+            const year = new Date(b.maturityDate).getFullYear();
             const par  = Number(b.parValue) || 0;
-            return matY >= Y ? sum + par : sum;
-        }, 0);
-
-    const interestInYear = (Y) =>
-        active.reduce((sum, b) => {
-            const matY = new Date(b.maturityDate).getFullYear();
-            const par  = Number(b.parValue) || 0;
-            const r    = Number(b.couponRate) || 0;
-            return matY >= Y ? sum + par * (r / 100) : sum;
-        }, 0);
-
-    const totalPrincipalActive = active.reduce((s, b) => s + (Number(b.parValue) || 0), 0);
-
-    let rowsHtml = years.map(y => {
-        const maturingThisYear = byMaturityYear[y] || 0;
-        const principalOutY    = principalOutstandingInYear(y);
-        const interestY        = interestInYear(y);
-        const shareOfTotal     = totalPrincipalActive > 0 ? (maturingThisYear / totalPrincipalActive) : 0;
-        const yieldOnOutY      = principalOutY > 0 ? (interestY / principalOutY) : 0;
-
-        return `
-    <tr>
-        <td data-label="Year">${y}</td>
-        <td class="num" data-label="Principal (kEUR)">${fmtKEUR(maturingThisYear)}</td>
-        <td class="num" data-label="Percentage">${fmtPct0(shareOfTotal)}</td>
-        <td class="num" data-label="Interest (kEUR)">${fmtKEUR(interestY)}</td>
-        <td class="num" data-label="Yield">${fmtPct1(yieldOnOutY)}</td>
-    </tr>
-        `;
-    }).join('');
-
-    rowsHtml += `
-      <tr class="total-row">
-        <td data-label="Year">Total</td>
-        <td class="num" data-label="Principal (kEUR)">${fmtKEUR(totalPrincipalActive)}</td>
-        <td class="num" data-label="Percentage">${fmtPct0(1)}</td>
-        <td class="num" data-label="Interest (kEUR)">—</td>
-        <td class="num" data-label="Yield">—</td>
-      </tr>
-    `;
-
-    container.innerHTML = `
-        <table class="table table--compact">
-            <thead>
+            byMaturityYear[year] = (byMaturityYear[year] || 0) + par;
+          });
+        
+          const years = Object.keys(byMaturityYear).map(Number).sort((a,b) => a - b);
+          if (years.length === 0) {
+            container.innerHTML = `<div class="empty-table">No upcoming maturities.</div>`;
+            return;
+          }
+        
+          // kEUR number formatter (1 decimal under 100k, else none)
+          const fmtKEUR = (v) => {
+            const k = v / 1000;
+            const useDecimals = Math.abs(k) < 100;
+            return new Intl.NumberFormat('de-DE', {
+              minimumFractionDigits: useDecimals ? 1 : 0,
+              maximumFractionDigits: useDecimals ? 1 : 0
+            }).format(k);
+          };
+        
+          // % with 0 decimals (share column)
+          const fmtPct0 = (v) =>
+            new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(v * 100) + '%';
+        
+          // % with 1 decimal (yield column)
+          const fmtPct1 = (v) =>
+            new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+              .format(v * 100) + '%';
+        
+          const principalOutstandingInYear = (Y) =>
+            active.reduce((sum, b) => {
+              const matY = new Date(b.maturityDate).getFullYear();
+              const par  = Number(b.parValue) || 0;
+              return matY >= Y ? sum + par : sum;
+            }, 0);
+        
+          const interestInYear = (Y) =>
+            active.reduce((sum, b) => {
+              const matY = new Date(b.maturityDate).getFullYear();
+              const par  = Number(b.parValue) || 0;
+              const r    = Number(b.couponRate) || 0;
+              return matY >= Y ? sum + par * (r / 100) : sum;
+            }, 0);
+        
+          const totalPrincipalActive = active.reduce((s, b) => s + (Number(b.parValue) || 0), 0);
+        
+          let rowsHtml = years.map(y => {
+            const maturingThisYear = byMaturityYear[y] || 0;
+            const principalOutY    = principalOutstandingInYear(y);
+            const interestY        = interestInYear(y);
+            const shareOfTotal     = totalPrincipalActive > 0 ? (maturingThisYear / totalPrincipalActive) : 0;
+            const yieldOnOutY      = principalOutY > 0 ? (interestY / principalOutY) : 0;
+        
+            return `
+              <tr>
+                <td data-label="Year">${y}</td>
+                <td class="num" data-label="Principal (kEUR)">${fmtKEUR(maturingThisYear)}</td>
+                <td class="num" data-label="Percentage">${fmtPct0(shareOfTotal)}</td>
+                <td class="num" data-label="Interest (kEUR)">${fmtKEUR(interestY)}</td>
+                <td class="num" data-label="Yield">${fmtPct1(yieldOnOutY)}</td>
+              </tr>
+            `;
+          }).join('');
+        
+          rowsHtml += `
+            <tr class="total-row">
+              <td data-label="Year">Total</td>
+              <td class="num" data-label="Principal (kEUR)">${fmtKEUR(totalPrincipalActive)}</td>
+              <td class="num" data-label="Percentage">${fmtPct0(1)}</td>
+              <td class="num" data-label="Interest (kEUR)">—</td>
+              <td class="num" data-label="Yield">—</td>
+            </tr>
+          `;
+        
+          container.innerHTML = `
+            <table class="table table--compact">
+              <thead>
                 <tr>
-                    <th>Year</th>
-                    <th>Principal (kEUR)</th>
-                    <th>Percentage</th>
-                    <th>Interest (kEUR)</th>
-                    <th>Yield</th>
+                  <th>Year</th>
+                  <th>Principal (kEUR)</th>
+                  <th>Percentage</th>
+                  <th>Interest (kEUR)</th>
+                  <th>Yield</th>
                 </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-        </table>
-    `;
-}
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          `;
+        }
+        
 
     updateFilters() {
         const sourceBonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : this.data.bonds;
