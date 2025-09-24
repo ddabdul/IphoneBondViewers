@@ -382,7 +382,7 @@ class PortfolioManager {
       }).join('');
     
       container.innerHTML = `
-        <table class="table">
+        <table class="table table--no-cards">
           <thead>
             <tr>
               <th>Year</th>
