@@ -75,25 +75,22 @@
                         <div class="stat-label">Average Yield</div>
                     </div>
                 </div> 
-                <!-- Charts -->
-                <div class="charts-section">
-                    <div class="card">
-                        <div class="card__body">
-                            <h3>Portfolio Composition</h3>
-                            <div class="chart-container" style="position: relative; height: 300px;">
-                                <canvas id="compositionChart"></canvas>
-                            </div>
-                        </div>
+              <!-- Charts -->
+              <div class="charts-section">
+                <div class="card">
+                  <div class="card__body">
+                    <h3>Maturity Schedule</h3>
+                    <div id="maturityTableContainer"></div>
+              
+                    <!-- Bar chart under the table -->
+                    <h4 class="mt-8">Expected Interest by Year</h4>
+                    <div class="chart-container" style="position: relative; height: 240px;">
+                      <canvas id="interestChart"></canvas>
                     </div>
-                    <div class="card">
-                        <div class="card__body">
-                        <h3>Principal Maturity Schedule</h3>
-                        <div id="maturityTableContainer"></div>
-                            </div>
-                        </div>
-                    </div>
+                  </div>
                 </div>
-            </div>
+              </div>
+
 
             <!-- Bonds Tab -->
             <div class="tab-content" id="bondsTab">
