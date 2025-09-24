@@ -381,24 +381,24 @@ createMaturityTable() {
         const yieldOnOutY      = principalOutY > 0 ? (interestY / principalOutY) : 0;
 
         return `
-            <tr>
-                <td>${y}</td>
-                <td class="num">${fmtKEUR(maturingThisYear)}</td>
-                <td class="num">${fmtPct(shareOfTotal)}</td>
-                <td class="num">${fmtKEUR(interestY)}</td>
-                <td class="num">${fmtPct(yieldOnOutY)}</td>
-            </tr>
+    <tr>
+        <td data-label="Year">${y}</td>
+        <td class="num" data-label="Principal (kEUR)">${fmtKEUR(maturingThisYear)}</td>
+        <td class="num" data-label="Percentage">${fmtPct0(shareOfTotal)}</td>
+        <td class="num" data-label="Interest (kEUR)">${fmtKEUR(interestY)}</td>
+        <td class="num" data-label="Yield">${fmtPct1(yieldOnOutY)}</td>
+    </tr>
         `;
     }).join('');
 
     rowsHtml += `
-        <tr class="total-row">
-            <td>Total</td>
-            <td class="num">${fmtKEUR(totalPrincipalActive)}</td>
-            <td class="num">${fmtPct(1)}</td>
-            <td class="num">—</td>
-            <td class="num">—</td>
-        </tr>
+      <tr class="total-row">
+        <td data-label="Year">Total</td>
+        <td class="num" data-label="Principal (kEUR)">${fmtKEUR(totalPrincipalActive)}</td>
+        <td class="num" data-label="Percentage">${fmtPct0(1)}</td>
+        <td class="num" data-label="Interest (kEUR)">—</td>
+        <td class="num" data-label="Yield">—</td>
+      </tr>
     `;
 
     container.innerHTML = `
