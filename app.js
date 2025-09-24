@@ -266,19 +266,19 @@ class PortfolioManager {
     if (avgYieldEl)     avgYieldEl.textContent = (averageYield ?? 0).toFixed(2) + '%';
   }
 
-  updateCharts() {
-    // Destroy old composition chart
-    if (this.charts.composition) { this.charts.composition.destroy(); this.charts.composition = null; }
+ updateCharts() {
+  // If you no longer use the doughnut chart, ensure it’s destroyed
+  if (this.charts.composition) { this.charts.composition.destroy(); this.charts.composition = null; }
+  if (this.charts.interest)    { this.charts.interest.destroy();    this.charts.interest    = null; }
 
-    // Let layout settle first
+  requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        // Chart is optional; table should always render
-        try { this.createCompositionChart(); } catch (e) { console.warn('Chart skipped:', e); }
-        this.createMaturityTable();
-      });
+      this.createMaturityTable();   // table in EUR with % of total + per-year yield
+      this.createInterestChart();   // bar chart + €150k reference line
     });
-  }
+  });
+}
+
 
   // Composition: active bonds by par per issuer
   createCompositionChart() {
@@ -310,103 +310,93 @@ class PortfolioManager {
   }
 
   // Table of maturities with interest & yield per year (values in kEUR)
-  createMaturityTable() {
-    const container = document.getElementById('maturityTableContainer');
-    if (!container) return;
-
-    const active = this.getActiveBonds();
-    const byMaturityYear = {};
-    active.forEach(b => {
-      const year = new Date(b.maturityDate).getFullYear();
-      const par  = Number(b.parValue) || 0;
-      byMaturityYear[year] = (byMaturityYear[year] || 0) + par;
-    });
-
-    const years = Object.keys(byMaturityYear).map(Number).sort((a,b) => a - b);
-    if (years.length === 0) {
-      container.innerHTML = `<div class="empty-table">No upcoming maturities.</div>`;
-      return;
-    }
-
-    // kEUR formatter (1 decimal below 100k, else none) — no unit appended
-    const fmtKEUR = (v) => {
-      const k = v / 1000;
-      const useDecimals = Math.abs(k) < 100;
-      return new Intl.NumberFormat('de-DE', {
-        minimumFractionDigits: useDecimals ? 1 : 0,
-        maximumFractionDigits: useDecimals ? 1 : 0
-      }).format(k);
-    };
-
-    // % with 0 decimals (share column)
-    const fmtPct0 = (v) =>
-      new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(v * 100) + '%';
-
-    // % with 1 decimal (yield column)
-    const fmtPct1 = (v) =>
-      new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-        .format(v * 100) + '%';
-
-    const principalOutstandingInYear = (Y) =>
-      active.reduce((sum, b) => {
-        const matY = new Date(b.maturityDate).getFullYear();
-        const par  = Number(b.parValue) || 0;
-        return matY >= Y ? sum + par : sum;
-      }, 0);
-
-    const interestInYear = (Y) =>
-      active.reduce((sum, b) => {
-        const matY = new Date(b.maturityDate).getFullYear();
-        const par  = Number(b.parValue) || 0;
-        const r    = Number(b.couponRate) || 0;
-        return matY >= Y ? sum + par * (r / 100) : sum;
-      }, 0);
-
-    const totalPrincipalActive = active.reduce((s, b) => s + (Number(b.parValue) || 0), 0);
-
-    let rowsHtml = years.map(y => {
-      const maturingThisYear = byMaturityYear[y] || 0;
-      const principalOutY    = principalOutstandingInYear(y);
-      const interestY        = interestInYear(y);
-      const shareOfTotal     = totalPrincipalActive > 0 ? (maturingThisYear / totalPrincipalActive) : 0;
-      const yieldOnOutY      = principalOutY > 0 ? (interestY / principalOutY) : 0;
-
-      return `
-        <tr>
-          <td data-label="Year">${y}</td>
-          <td class="num" data-label="Principal (kEUR)">${fmtKEUR(maturingThisYear)}</td>
-          <td class="num" data-label="Percentage">${fmtPct0(shareOfTotal)}</td>
-          <td class="num" data-label="Interest (kEUR)">${fmtKEUR(interestY)}</td>
-          <td class="num" data-label="Yield">${fmtPct1(yieldOnOutY)}</td>
-        </tr>
-      `;
-    }).join('');
-
-    rowsHtml += `
-      <tr class="total-row">
-        <td data-label="Year">Total</td>
-        <td class="num" data-label="Principal (kEUR)">${fmtKEUR(totalPrincipalActive)}</td>
-        <td class="num" data-label="Percentage">${fmtPct0(1)}</td>
-        <td class="num" data-label="Interest (kEUR)">—</td>
-        <td class="num" data-label="Yield">—</td>
-      </tr>
-    `;
-
-    container.innerHTML = `
-      <table class="table table--compact">
-        <thead>
+  // Table: for each year -> Principal (EUR), % of total, Yield of that year
+    createMaturityTable() {
+      const container = document.getElementById('maturityTableContainer');
+      if (!container) return;
+    
+      const active = this.getActiveBonds();
+      if (active.length === 0) {
+        container.innerHTML = `<div class="empty-table">No upcoming maturities.</div>`;
+        return;
+      }
+    
+      // Group principal maturing by year
+      const byYearPrincipal = {};
+      active.forEach(b => {
+        const y = new Date(b.maturityDate).getFullYear();
+        const par = Number(b.parValue) || 0;
+        byYearPrincipal[y] = (byYearPrincipal[y] || 0) + par;
+      });
+    
+      const years = Object.keys(byYearPrincipal).map(Number).sort((a,b) => a - b);
+      if (years.length === 0) {
+        container.innerHTML = `<div class="empty-table">No upcoming maturities.</div>`;
+        return;
+      }
+    
+      // Formatters
+      const fmtEUR = (v) => new Intl.NumberFormat('de-DE', {
+        style: 'currency', currency: 'EUR', maximumFractionDigits: 0
+      }).format(v);
+    
+      const fmtPct0 = (v) =>
+        new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(v * 100) + '%';
+    
+      const fmtPct1 = (v) =>
+        new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+          .format(v * 100) + '%';
+    
+      // Helper: principal outstanding during year Y (i.e., all bonds with maturity >= Y)
+      const principalOutstandingInYear = (Y) =>
+        active.reduce((sum, b) => {
+          const matY = new Date(b.maturityDate).getFullYear();
+          const par  = Number(b.parValue) || 0;
+          return matY >= Y ? sum + par : sum;
+        }, 0);
+    
+      // Helper: interest paid during year Y from active bonds that year (par * coupon%)
+      const interestInYear = (Y) =>
+        active.reduce((sum, b) => {
+          const matY = new Date(b.maturityDate).getFullYear();
+          const par  = Number(b.parValue) || 0;
+          const r    = Number(b.couponRate) || 0; // % per annum
+          return matY >= Y ? sum + par * (r / 100) : sum;
+        }, 0);
+    
+      const totalPrincipalActive = active.reduce((s, b) => s + (Number(b.parValue) || 0), 0);
+    
+      const rowsHtml = years.map(y => {
+        const principalMaturing = byYearPrincipal[y] || 0;           // maturing that year
+        const principalOutY     = principalOutstandingInYear(y);      // outstanding during that year
+        const interestY         = interestInYear(y);                  // interest in EUR that year
+        const shareOfTotal      = totalPrincipalActive > 0 ? (principalMaturing / totalPrincipalActive) : 0;
+        const yieldOnYear       = principalOutY > 0 ? (interestY / principalOutY) : 0;
+    
+        return `
           <tr>
-            <th>Year</th>
-            <th>Principal (kEUR)</th>
-            <th>Percentage</th>
-            <th>Interest (kEUR)</th>
-            <th>Yield</th>
+            <td data-label="Year">${y}</td>
+            <td class="num" data-label="Principal (EUR)">${fmtEUR(principalMaturing)}</td>
+            <td class="num" data-label="Percentage">${fmtPct0(shareOfTotal)}</td>
+            <td class="num" data-label="Yield (Year)">${fmtPct1(yieldOnYear)}</td>
           </tr>
-        </thead>
-        <tbody>${rowsHtml}</tbody>
-      </table>
-    `;
-  }
+        `;
+      }).join('');
+    
+      container.innerHTML = `
+        <table class="table table--compact">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Principal (EUR)</th>
+              <th>Percentage</th>
+              <th>Yield (Year)</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      `;
+    }
 
   updateFilters() {
     const sourceBonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : this.data.bonds;
@@ -527,6 +517,83 @@ class PortfolioManager {
       </div>
     `;
   }
+createInterestChart() {
+  const canvas = document.getElementById('interestChart');
+  if (!canvas) return;
+
+  const active = this.getActiveBonds();
+  if (active.length === 0) return;
+
+  // Build yearly interest map and sorted labels
+  const yearsSet = new Set();
+  active.forEach(b => yearsSet.add(new Date(b.maturityDate).getFullYear()));
+  const years = Array.from(yearsSet).sort((a,b)=>a-b);
+
+  const interestByYear = years.map(Y =>
+    active.reduce((sum, b) => {
+      const matY = new Date(b.maturityDate).getFullYear();
+      const par  = Number(b.parValue) || 0;
+      const r    = Number(b.couponRate) || 0;
+      return matY >= Y ? sum + par * (r / 100) : sum;
+    }, 0)
+  );
+
+  // Custom plugin to draw the €150,000 reference line
+  const REF = 150000;
+  const refLinePlugin = {
+    id: 'refLine',
+    afterDraw(chart) {
+      const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+      if (!y) return;
+      const yPos = y.getPixelForValue(REF);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(left, yPos);
+      ctx.lineTo(right, yPos);
+      ctx.setLineDash([6,6]);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.textAlign = 'right';
+      ctx.fillText('€150.000', right - 4, yPos - 6);
+      ctx.restore();
+    }
+  };
+
+  // Destroy previous
+  if (this.charts.interest) { this.charts.interest.destroy(); this.charts.interest = null; }
+
+  this.charts.interest = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: years,
+      datasets: [{
+        label: 'Interest (EUR)',
+        data: interestByYear
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false } },
+        y: {
+          ticks: {
+            callback: (v) => new Intl.NumberFormat('de-DE', {
+              style: 'currency', currency: 'EUR', maximumFractionDigits: 0
+            }).format(v)
+          },
+          beginAtZero: true
+        }
+      }
+    },
+    plugins: [refLinePlugin]
+  });
+}
 
   showBondDetails(bond) {
     const modal = document.getElementById('bondDetailModal');
