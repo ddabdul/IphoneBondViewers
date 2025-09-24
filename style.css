@@ -1394,3 +1394,20 @@ select.form-control {
     font-size: 12px;
   }
 }
+
+/* Keep a real 4-column table even on mobile */
+.table--no-cards { table-layout: fixed; width: 100%; border-collapse: collapse; }
+.table--no-cards th, .table--no-cards td {
+  padding: 6px 8px; border-bottom: 1px solid #eee;
+  white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
+}
+.table--no-cards .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (max-width:480px){
+  .table--no-cards thead { display: table-header-group !important; }
+  .table--no-cards tbody { display: table-row-group !important; }
+  .table--no-cards tr    { display: table-row !important; }
+  .table--no-cards th,
+  .table--no-cards td    { display: table-cell !important; }
+}
+
