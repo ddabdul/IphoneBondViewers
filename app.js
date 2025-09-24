@@ -309,19 +309,18 @@ class PortfolioManager {
     });
   }
 
-  // Table of maturities with interest & yield per year (values in kEUR)
   // Table: for each year -> Principal (EUR), % of total, Yield of that year
-    createMaturityTable() {
+        createMaturityTable() {
       const container = document.getElementById('maturityTableContainer');
       if (!container) return;
     
       const active = this.getActiveBonds();
-      if (active.length === 0) {
+      if (!active.length) {
         container.innerHTML = `<div class="empty-table">No upcoming maturities.</div>`;
         return;
       }
     
-      // Group principal maturing by year
+      // Group principal that MATURES in year Y
       const byYearPrincipal = {};
       active.forEach(b => {
         const y = new Date(b.maturityDate).getFullYear();
@@ -329,8 +328,8 @@ class PortfolioManager {
         byYearPrincipal[y] = (byYearPrincipal[y] || 0) + par;
       });
     
-      const years = Object.keys(byYearPrincipal).map(Number).sort((a,b) => a - b);
-      if (years.length === 0) {
+      const years = Object.keys(byYearPrincipal).map(Number).sort((a,b)=>a-b);
+      if (!years.length) {
         container.innerHTML = `<div class="empty-table">No upcoming maturities.</div>`;
         return;
       }
@@ -339,15 +338,14 @@ class PortfolioManager {
       const fmtEUR = (v) => new Intl.NumberFormat('de-DE', {
         style: 'currency', currency: 'EUR', maximumFractionDigits: 0
       }).format(v);
+      const fmtPct0 = (v) => new Intl.NumberFormat('de-DE', {
+        maximumFractionDigits: 0
+      }).format(v * 100) + '%';
+      const fmtPct1 = (v) => new Intl.NumberFormat('de-DE', {
+        minimumFractionDigits: 1, maximumFractionDigits: 1
+      }).format(v * 100) + '%';
     
-      const fmtPct0 = (v) =>
-        new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 }).format(v * 100) + '%';
-    
-      const fmtPct1 = (v) =>
-        new Intl.NumberFormat('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-          .format(v * 100) + '%';
-    
-      // Helper: principal outstanding during year Y (i.e., all bonds with maturity >= Y)
+      // Principal outstanding DURING year Y = all bonds with maturity >= Y
       const principalOutstandingInYear = (Y) =>
         active.reduce((sum, b) => {
           const matY = new Date(b.maturityDate).getFullYear();
@@ -355,42 +353,42 @@ class PortfolioManager {
           return matY >= Y ? sum + par : sum;
         }, 0);
     
-      // Helper: interest paid during year Y from active bonds that year (par * coupon%)
+      // Interest expected in year Y = Σ(par * coupon%) for bonds active in Y
       const interestInYear = (Y) =>
         active.reduce((sum, b) => {
           const matY = new Date(b.maturityDate).getFullYear();
           const par  = Number(b.parValue) || 0;
-          const r    = Number(b.couponRate) || 0; // % per annum
+          const r    = Number(b.couponRate) || 0; // % p.a.
           return matY >= Y ? sum + par * (r / 100) : sum;
         }, 0);
     
       const totalPrincipalActive = active.reduce((s, b) => s + (Number(b.parValue) || 0), 0);
     
       const rowsHtml = years.map(y => {
-        const principalMaturing = byYearPrincipal[y] || 0;           // maturing that year
-        const principalOutY     = principalOutstandingInYear(y);      // outstanding during that year
-        const interestY         = interestInYear(y);                  // interest in EUR that year
-        const shareOfTotal      = totalPrincipalActive > 0 ? (principalMaturing / totalPrincipalActive) : 0;
-        const yieldOnYear       = principalOutY > 0 ? (interestY / principalOutY) : 0;
+        const principalMaturing = byYearPrincipal[y] || 0;       // Principal (EUR)
+        const shareOfTotal      = totalPrincipalActive > 0 ? (principalMaturing / totalPrincipalActive) : 0; // %
+        const principalOutY     = principalOutstandingInYear(y);  // denominator for yield
+        const interestY         = interestInYear(y);              // numerator for yield
+        const yieldY            = principalOutY > 0 ? (interestY / principalOutY) : 0;
     
         return `
           <tr>
-            <td data-label="Year">${y}</td>
-            <td class="num" data-label="Principal (EUR)">${fmtEUR(principalMaturing)}</td>
-            <td class="num" data-label="Percentage">${fmtPct0(shareOfTotal)}</td>
-            <td class="num" data-label="Yield (Year)">${fmtPct1(yieldOnYear)}</td>
+            <td>${y}</td>
+            <td class="num">${fmtEUR(principalMaturing)}</td>
+            <td class="num">${fmtPct0(shareOfTotal)}</td>
+            <td class="num">${fmtPct1(yieldY)}</td>
           </tr>
         `;
       }).join('');
     
       container.innerHTML = `
-        <table class="table table--compact">
+        <table class="table">
           <thead>
             <tr>
               <th>Year</th>
               <th>Principal (EUR)</th>
               <th>Percentage</th>
-              <th>Yield (Year)</th>
+              <th>Yield</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}</tbody>
