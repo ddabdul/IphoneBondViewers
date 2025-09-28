@@ -277,6 +277,7 @@ class PortfolioManager {
     requestAnimationFrame(() => {
       this.createMaturityTable();   // table in EUR with % of total + per-year yield
       this.createInterestChart();   // bar chart + €150k reference line
+      this.createIssuerTable(); // Table of issuers
     });
   });
 }
