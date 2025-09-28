@@ -5,7 +5,7 @@ class PortfolioManager {
     this.data = { bonds: [], stats: {} };
     this.charts = {};
     this.currentTab = 'dashboard';
-    this.filters = { bonds: { search: '', issuer: '', depot: '', excludeMatured: true } };
+    this.filters = { bonds: { search: '', issuer: '', depot: '', year: '', excludeMatured: true } };
 
     // CACHE KEYS
     this.CACHE_KEY_BONDS = 'bonds_json_v1';
@@ -96,10 +96,12 @@ class PortfolioManager {
     const issuerFilter = document.getElementById('issuerFilter');
     const depotFilter = document.getElementById('depotFilter');
     const excludeToggle = document.getElementById('excludeMaturedToggle');
+    const yearFilter = document.getElementById('maturityYearFilter');
 
     if (bondSearch)  bondSearch.addEventListener('input', e => this.updateFilter('bonds', 'search', e.target.value));
     if (issuerFilter) issuerFilter.addEventListener('change', e => this.updateFilter('bonds', 'issuer', e.target.value));
     if (depotFilter)  depotFilter.addEventListener('change', e => this.updateFilter('bonds', 'depot', e.target.value));
+    if (yearFilter) yearFilter.addEventListener('change', e => this.updateFilter('bonds', 'year', e.target.value));
 
     if (excludeToggle) {
       this.filters.bonds.excludeMatured = !!excludeToggle.checked;
@@ -417,6 +419,25 @@ class PortfolioManager {
       if (this.filters.bonds.depot && !depots.includes(this.filters.bonds.depot)) this.filters.bonds.depot = '';
     }
 
+
+  // Years
+    const years = [...new Set(
+    sourceBonds
+      .map(b => {
+        const t = Date.parse(b.maturityDate);
+        return Number.isFinite(t) ? new Date(t).getFullYear() : null;
+      })
+      .filter(y => y != null)
+  )].sort((a, b) => a - b);
+
+  const yearSelect = document.getElementById('maturityYearFilter');
+  if (yearSelect) {
+    yearSelect.innerHTML = '<option value="">All Maturity Years</option>';
+    years.forEach(y => yearSelect.innerHTML += `<option value="${y}">${y}</option>`);
+    if (this.filters.bonds.year && !years.includes(Number(this.filters.bonds.year))) this.filters.bonds.year = '';
+    // keep the UI in sync after we may have reset it
+    yearSelect.value = this.filters.bonds.year || '';
+  }
     const excludeToggle = document.getElementById('excludeMaturedToggle');
     if (excludeToggle) excludeToggle.checked = !!this.filters.bonds.excludeMatured;
   }
@@ -459,6 +480,11 @@ class PortfolioManager {
     }
     if (f.issuer) bonds = bonds.filter(b => b.issuer === f.issuer);
     if (f.depot)  bonds = bonds.filter(b => b.depotBank === f.depot);
+
+    if (f.year) bonds = bonds.filter(b => {
+      const t = Date.parse(b.maturityDate);
+      return Number.isFinite(t) && new Date(t).getFullYear() === Number(f.year);
+    });
 
     // Sort by maturity soonest-first (keeps active above matured)
     const now = new Date();
