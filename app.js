@@ -399,6 +399,72 @@ class PortfolioManager {
       `;
     }
 
+
+  createIssuerTable() {
+  const container = document.getElementById('issuerBreakdownContainer');
+  if (!container) return;
+
+  const active = this.getActiveBonds();
+  if (!active.length) {
+    container.innerHTML = `<div class="empty-table">No active bonds.</div>`;
+    return;
+  }
+
+  // Sum principal by issuer
+  const byIssuer = active.reduce((acc, b) => {
+    const issuer = b.issuer || '—';
+    const par = Number(b.parValue) || 0;
+    acc[issuer] = (acc[issuer] || 0) + par;
+    return acc;
+  }, {});
+
+  const totalPrincipal = Object.values(byIssuer).reduce((s, v) => s + v, 0);
+
+  // Sort issuers by principal desc
+  const rows = Object.entries(byIssuer)
+    .sort((a, b) => b[1] - a[1]);
+
+  // Formatters
+  const fmtEUR = (v) => new Intl.NumberFormat('de-DE', {
+    style: 'currency', currency: 'EUR', maximumFractionDigits: 0
+  }).format(v);
+  const fmtPct0 = (v) => new Intl.NumberFormat('de-DE', {
+    maximumFractionDigits: 0
+  }).format(v * 100) + '%';
+
+  const rowsHtml = rows.map(([issuer, principal]) => {
+    const pct = totalPrincipal > 0 ? principal / totalPrincipal : 0;
+    return `
+      <tr>
+        <td data-label="Issuer">${issuer}</td>
+        <td class="num" data-label="Principal (EUR)">${fmtEUR(principal)}</td>
+        <td class="num" data-label="% of Total">${fmtPct0(pct)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="table table--no-cards">
+      <thead>
+        <tr>
+          <th>Issuer</th>
+          <th>Principal (EUR)</th>
+          <th>% of Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsHtml}
+        <tr class="total-row">
+          <td>Total</td>
+          <td class="num">${fmtEUR(totalPrincipal)}</td>
+          <td class="num">${fmtPct0(1)}</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+}
+
+
   updateFilters() {
     const sourceBonds = this.filters.bonds.excludeMatured ? this.getActiveBonds() : this.data.bonds;
 
