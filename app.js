@@ -724,7 +724,7 @@ createInterestChart() {
       ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
       ctx.textAlign = 'right';
-      ctx.fillText('â‚¬150.000', right - 4, yPos - 6);
+      ctx.fillText('EUR 150.000', right - 4, yPos - 6);
       ctx.restore();
     }
   };
