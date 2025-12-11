@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -113,6 +113,17 @@
         </div>
         <div class="bonds-list" id="bondsList"></div>
       </div>
+
+      <!-- Interest Timeline -->
+      <div class="tab-content" id="interestTab">
+        <div class="card">
+          <div class="card__body">
+            <h3>Interest Timeline</h3>
+            <p class="muted-copy">Projected coupon payments for the current and next year.</p>
+            <div id="interestTimeline"></div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- Bottom Nav -->
@@ -125,8 +136,11 @@
         <span class="nav-icon">📋</span>
         <span class="nav-label">Bonds</span>
       </button>
+      <button class="nav-item" data-tab="interest">
+        <span class="nav-icon">ĐY"=</span>
+        <span class="nav-label">Interest</span>
+      </button>
     </nav>
-
     <!-- Bond Detail Modal -->
     <div class="modal hidden" id="bondDetailModal">
       <div class="modal-content">

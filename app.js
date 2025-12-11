@@ -1,4 +1,4 @@
-// Portfolio Management App JavaScript
+﻿// Portfolio Management App JavaScript
 
 class PortfolioManager {
   constructor() {
@@ -51,6 +51,12 @@ class PortfolioManager {
   }
   getActiveBonds(asOf = new Date()) {
     return this.data.bonds.filter(b => this.isBondActive(b, asOf));
+  }
+  isActiveInYear(bond, year) {
+    const t = Date.parse(bond.maturityDate);
+    if (!Number.isFinite(t)) return false;
+    const startOfYear = new Date(year, 0, 1).getTime();
+    return t >= startOfYear;
   }
 
   init() {
@@ -255,6 +261,7 @@ class PortfolioManager {
     this.updateCharts();
     this.updateFilters();
     this.renderBonds();
+    this.renderInterestTimeline();
   }
 
   updateStats() {
@@ -269,14 +276,14 @@ class PortfolioManager {
   }
 
  updateCharts() {
-  // If you no longer use the doughnut chart, ensure it’s destroyed
+  // If you no longer use the doughnut chart, ensure itâ€™s destroyed
   if (this.charts.composition) { this.charts.composition.destroy(); this.charts.composition = null; }
   if (this.charts.interest)    { this.charts.interest.destroy();    this.charts.interest    = null; }
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       this.createMaturityTable();   // table in EUR with % of total + per-year yield
-      this.createInterestChart();   // bar chart + €150k reference line
+      this.createInterestChart();   // bar chart + â‚¬150k reference line
       this.createIssuerTable(); // Table of issuers
     });
   });
@@ -356,7 +363,7 @@ class PortfolioManager {
           return matY >= Y ? sum + par : sum;
         }, 0);
     
-      // Interest expected in year Y = Σ(par * coupon%) for bonds active in Y
+      // Interest expected in year Y = Î£(par * coupon%) for bonds active in Y
       const interestInYear = (Y) =>
         active.reduce((sum, b) => {
           const matY = new Date(b.maturityDate).getFullYear();
@@ -412,7 +419,7 @@ class PortfolioManager {
 
   // Sum principal by issuer
   const byIssuer = active.reduce((acc, b) => {
-    const issuer = b.issuer || '—';
+    const issuer = b.issuer || 'â€”';
     const par = Number(b.parValue) || 0;
     acc[issuer] = (acc[issuer] || 0) + par;
     return acc;
@@ -520,6 +527,7 @@ class PortfolioManager {
 
     this.currentTab = tabName;
     if (tabName === 'dashboard' && this.data.bonds.length > 0) this.updateCharts();
+    if (tabName === 'interest' && this.data.bonds.length > 0) this.renderInterestTimeline();
   }
 
   updateFilter(type, filterName, value) {
@@ -629,7 +637,7 @@ createInterestChart() {
     }, 0)
   );
 
-  // Custom plugin to draw the €150,000 reference line
+  // Custom plugin to draw the â‚¬150,000 reference line
   const REF = 150000;
   const refLinePlugin = {
     id: 'refLine',
@@ -649,7 +657,7 @@ createInterestChart() {
       ctx.font = '12px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
       ctx.textAlign = 'right';
-      ctx.fillText('€150.000', right - 4, yPos - 6);
+      ctx.fillText('â‚¬150.000', right - 4, yPos - 6);
       ctx.restore();
     }
   };
@@ -685,6 +693,78 @@ createInterestChart() {
     plugins: [refLinePlugin]
   });
 }
+
+  renderInterestTimeline() {
+    const container = document.getElementById('interestTimeline');
+    if (!container) return;
+
+    if (!this.data.bonds.length) {
+      container.innerHTML = `<div class="timeline-empty">Load bonds to see upcoming interest.</div>`;
+      return;
+    }
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const currentYear = now.getFullYear();
+    const years = [currentYear, currentYear + 1];
+
+    const fmtEUR = (v) => new Intl.NumberFormat('de-DE', {
+      style: 'currency', currency: 'EUR', maximumFractionDigits: 0
+    }).format(v);
+    const fmtDate = (d) => d.toLocaleDateString();
+
+    const blocks = years.map(year => {
+      const payments = this.data.bonds
+        .map(b => {
+          const t = Date.parse(b.maturityDate);
+          if (!Number.isFinite(t)) return null;
+          const maturityDate = new Date(t);
+          const maturityYear = maturityDate.getFullYear();
+          if (year > maturityYear) return null;
+
+          const payDate = new Date(year, maturityDate.getMonth(), maturityDate.getDate());
+          const payTs = payDate.getTime();
+          if (payTs < startOfToday) return null; // only future (or today) coupons
+
+          const par = Number(b.parValue) || 0;
+          const rate = Number(b.couponRate) || 0;
+          const interest = par * (rate / 100);
+
+          return { bond: b, payDate, payTs, interest, rate };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.payTs - b.payTs);
+
+      const total = payments.reduce((sum, p) => sum + p.interest, 0);
+
+      const items = payments.map(({ bond, payDate, interest, rate }) => `
+        <div class="timeline-item">
+          <div class="timeline-item-header">
+            <div class="timeline-item-title">${bond.name || bond.isin || 'Bond'}</div>
+            <div class="timeline-amount">${fmtEUR(interest)}</div>
+          </div>
+          <div class="timeline-meta">
+            <span>${bond.issuer || 'Unknown issuer'}</span>
+            <span>Coupon ${rate.toFixed(2)}%</span>
+            <span>Payment ${fmtDate(payDate)}</span>
+          </div>
+        </div>
+      `).join('');
+
+      return `
+        <div class="timeline-year">
+          <div class="timeline-marker"></div>
+          <div class="timeline-year-header">
+            <div class="timeline-year-label">${year}</div>
+            <div class="timeline-year-total">${fmtEUR(total)}</div>
+          </div>
+          ${payments.length ? `<div class="timeline-items">${items}</div>` : `<div class="timeline-empty">No expected interest in ${year}.</div>`}
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = `<div class="timeline">${blocks}</div>`;
+  }
 
   showBondDetails(bond) {
     const modal = document.getElementById('bondDetailModal');
@@ -734,3 +814,4 @@ createInterestChart() {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => { new PortfolioManager(); });
+

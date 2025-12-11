@@ -305,6 +305,7 @@ h4 { font-size: var(--font-size-xl); }
 h5 { font-size: var(--font-size-lg); }
 h6 { font-size: var(--font-size-md); }
 p { margin: 0 0 var(--space-16) 0; }
+.muted-copy { color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-top: var(--space-4); margin-bottom: var(--space-16); }
 
 a { color: var(--color-primary); text-decoration: none; transition: color var(--duration-fast) var(--ease-standard); }
 a:hover { color: var(--color-primary-hover); }
@@ -747,11 +748,11 @@ select.form-control {
     width: 100%;
   }
   .table:not(.table--no-cards) thead { display: none; }
-  .table:not(.table--no-cards) tr {
-    display: block;
-    background: var(--color-surface);
-    border: 1px solid var(--color-card-border);
-    border-radius: var(--radius-base);
+.table:not(.table--no-cards) tr {
+  display: block;
+  background: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-base);
     margin-bottom: 10px;
     box-shadow: var(--shadow-sm);
     overflow: hidden;
@@ -784,4 +785,97 @@ select.form-control {
   .table--no-cards tr    { display: table-row !important; }
   .table--no-cards th,
   .table--no-cards td    { display: table-cell !important; }
+}
+
+/* Timeline */
+.timeline {
+  position: relative;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--color-border);
+}
+.timeline-year {
+  position: relative;
+  padding-left: 6px;
+}
+.timeline-marker {
+  position: absolute;
+  left: -12px;
+  top: 4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 0 0 2px var(--color-bg-1);
+}
+.timeline-year-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-12);
+  margin-bottom: var(--space-8);
+}
+.timeline-year-label {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+.timeline-year-total {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+.timeline-items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+.timeline-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-base);
+  padding: var(--space-12);
+  box-shadow: var(--shadow-sm);
+}
+.timeline-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+.timeline-item-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+.timeline-amount {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+.timeline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-12);
+  margin-top: var(--space-6);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+.timeline-meta span { display: inline-flex; align-items: center; }
+.timeline-empty {
+  padding: var(--space-12);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-base);
+  color: var(--color-text-secondary);
+  background: var(--color-secondary);
 }
