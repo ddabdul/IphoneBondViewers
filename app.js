@@ -5,7 +5,10 @@ class PortfolioManager {
     this.data = { bonds: [], stats: {} };
     this.charts = {};
     this.currentTab = 'dashboard';
-    this.filters = { bonds: { search: '', issuer: '', depot: '', year: '', excludeMatured: true } };
+    this.filters = {
+      bonds: { search: '', issuer: '', depot: '', year: '', excludeMatured: true },
+      interest: { issuer: '', depot: '', year: '', showPast: false }
+    };
 
     // CACHE KEYS
     this.CACHE_KEY_BONDS = 'bonds_json_v1';
@@ -103,11 +106,19 @@ class PortfolioManager {
     const depotFilter = document.getElementById('depotFilter');
     const excludeToggle = document.getElementById('excludeMaturedToggle');
     const yearFilter = document.getElementById('maturityYearFilter');
+    const interestIssuerFilter = document.getElementById('interestIssuerFilter');
+    const interestDepotFilter = document.getElementById('interestDepotFilter');
+    const interestYearFilter = document.getElementById('interestYearFilter');
+    const interestShowPast = document.getElementById('interestShowPast');
 
     if (bondSearch)  bondSearch.addEventListener('input', e => this.updateFilter('bonds', 'search', e.target.value));
     if (issuerFilter) issuerFilter.addEventListener('change', e => this.updateFilter('bonds', 'issuer', e.target.value));
     if (depotFilter)  depotFilter.addEventListener('change', e => this.updateFilter('bonds', 'depot', e.target.value));
     if (yearFilter) yearFilter.addEventListener('change', e => this.updateFilter('bonds', 'year', e.target.value));
+    if (interestIssuerFilter) interestIssuerFilter.addEventListener('change', e => this.updateFilter('interest', 'issuer', e.target.value));
+    if (interestDepotFilter) interestDepotFilter.addEventListener('change', e => this.updateFilter('interest', 'depot', e.target.value));
+    if (interestYearFilter) interestYearFilter.addEventListener('change', e => this.updateFilter('interest', 'year', e.target.value));
+    if (interestShowPast) interestShowPast.addEventListener('change', e => this.updateFilter('interest', 'showPast', e.target.checked));
 
     if (excludeToggle) {
       this.filters.bonds.excludeMatured = !!excludeToggle.checked;
@@ -260,6 +271,7 @@ class PortfolioManager {
     this.updateStats();
     this.updateCharts();
     this.updateFilters();
+    this.updateInterestFilters();
     this.renderBonds();
     this.renderInterestTimeline();
   }
@@ -516,6 +528,56 @@ class PortfolioManager {
     if (excludeToggle) excludeToggle.checked = !!this.filters.bonds.excludeMatured;
   }
 
+  updateInterestFilters() {
+    const selects = {
+      issuer: document.getElementById('interestIssuerFilter'),
+      depot: document.getElementById('interestDepotFilter'),
+      year: document.getElementById('interestYearFilter')
+    };
+    const now = new Date();
+    const currentYear = now.getFullYear();
+
+    const validBonds = this.data.bonds.filter(b => Number.isFinite(Date.parse(b.maturityDate)));
+    if (!validBonds.length) {
+      if (selects.issuer) selects.issuer.innerHTML = '<option value="">All Issuers</option>';
+      if (selects.depot) selects.depot.innerHTML = '<option value="">All Depots</option>';
+      if (selects.year) selects.year.innerHTML = '<option value="">All Years</option>';
+      return;
+    }
+
+    const maxYear = Math.max(...validBonds.map(b => new Date(b.maturityDate).getFullYear()), currentYear);
+    const yearsSet = new Set();
+    for (let y = currentYear; y <= maxYear; y++) yearsSet.add(y);
+
+    // Issuers
+    if (selects.issuer) {
+      const issuers = [...new Set(validBonds.map(b => b.issuer).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      selects.issuer.innerHTML = '<option value="">All Issuers</option>' + issuers.map(i => `<option value="${i}">${i}</option>`).join('');
+      if (this.filters.interest.issuer && !issuers.includes(this.filters.interest.issuer)) this.filters.interest.issuer = '';
+      selects.issuer.value = this.filters.interest.issuer || '';
+    }
+
+    // Depots
+    if (selects.depot) {
+      const depots = [...new Set(validBonds.map(b => b.depotBank).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      selects.depot.innerHTML = '<option value="">All Depots</option>' + depots.map(d => `<option value="${d}">${d}</option>`).join('');
+      if (this.filters.interest.depot && !depots.includes(this.filters.interest.depot)) this.filters.interest.depot = '';
+      selects.depot.value = this.filters.interest.depot || '';
+    }
+
+    // Years
+    if (selects.year) {
+      const years = [...yearsSet].sort((a, b) => a - b);
+      selects.year.innerHTML = '<option value="">All Years</option>' + years.map(y => `<option value="${y}">${y}</option>`).join('');
+      if (this.filters.interest.year && !years.includes(Number(this.filters.interest.year))) this.filters.interest.year = '';
+      selects.year.value = this.filters.interest.year || '';
+    }
+
+    // Show past
+    const pastToggle = document.getElementById('interestShowPast');
+    if (pastToggle) pastToggle.checked = !!this.filters.interest.showPast;
+  }
+
   switchTab(tabName) {
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     const activeNavItem = document.querySelector(`[data-tab="${tabName}"]`);
@@ -527,7 +589,10 @@ class PortfolioManager {
 
     this.currentTab = tabName;
     if (tabName === 'dashboard' && this.data.bonds.length > 0) this.updateCharts();
-    if (tabName === 'interest' && this.data.bonds.length > 0) this.renderInterestTimeline();
+    if (tabName === 'interest' && this.data.bonds.length > 0) {
+      this.updateInterestFilters();
+      this.renderInterestTimeline();
+    }
   }
 
   updateFilter(type, filterName, value) {
@@ -535,6 +600,8 @@ class PortfolioManager {
     if (type === 'bonds') {
       if (filterName === 'excludeMatured') this.updateFilters();
       this.renderBonds();
+    } else if (type === 'interest') {
+      this.renderInterestTimeline();
     }
   }
 
@@ -706,26 +773,34 @@ createInterestChart() {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const currentYear = now.getFullYear();
-    const years = [currentYear, currentYear + 1];
+
+    const validBonds = this.data.bonds.filter(b => Number.isFinite(Date.parse(b.maturityDate)));
+    if (!validBonds.length) {
+      container.innerHTML = `<div class="timeline-empty">Load bonds to see upcoming interest.</div>`;
+      return;
+    }
+
+    const maxYear = Math.max(...validBonds.map(b => new Date(b.maturityDate).getFullYear()), currentYear);
+    const allYears = [];
+    for (let y = currentYear; y <= maxYear; y++) allYears.push(y);
+    const years = this.filters.interest.year ? [Number(this.filters.interest.year)] : allYears;
 
     const fmtEUR = (v) => new Intl.NumberFormat('de-DE', {
       style: 'currency', currency: 'EUR', maximumFractionDigits: 0
     }).format(v);
     const fmtDate = (d) => d.toLocaleDateString();
 
-    const blocks = years.map(year => {
-      const payments = this.data.bonds
-        .map(b => {
-          const t = Date.parse(b.maturityDate);
-          if (!Number.isFinite(t)) return null;
-          const maturityDate = new Date(t);
-          const maturityYear = maturityDate.getFullYear();
-          if (year > maturityYear) return null;
+      const blocks = years.map(year => {
+        const payments = this.data.bonds
+          .map(b => {
+            const t = Date.parse(b.maturityDate);
+            if (!Number.isFinite(t)) return null;
+            const maturityDate = new Date(t);
+            const maturityYear = maturityDate.getFullYear();
+            if (year > maturityYear) return null;
 
           const payDate = new Date(year, maturityDate.getMonth(), maturityDate.getDate());
           const payTs = payDate.getTime();
-          if (payTs < startOfToday) return null; // only future (or today) coupons
-
           const par = Number(b.parValue) || 0;
           const rate = Number(b.couponRate) || 0;
           const interest = par * (rate / 100);
@@ -733,37 +808,75 @@ createInterestChart() {
           return { bond: b, payDate, payTs, interest, rate };
         })
         .filter(Boolean)
+        .filter(p => {
+          const f = this.filters.interest;
+          const issuerOk = !f.issuer || p.bond.issuer === f.issuer;
+          const depotOk = !f.depot || p.bond.depotBank === f.depot;
+          const yearOk = !f.year || Number(f.year) === year;
+          const showPast = !!f.showPast;
+          const isPast = p.payTs < startOfToday;
+          const pastOk = showPast || !isPast;
+          return issuerOk && depotOk && yearOk && pastOk;
+        })
         .sort((a, b) => a.payTs - b.payTs);
 
-      const total = payments.reduce((sum, p) => sum + p.interest, 0);
+        const total = payments.reduce((sum, p) => sum + p.interest, 0);
 
-      const items = payments.map(({ bond, payDate, interest, rate }) => `
-        <div class="timeline-item">
-          <div class="timeline-item-header">
-            <div class="timeline-item-title">${bond.name || bond.isin || 'Bond'}</div>
-            <div class="timeline-amount">${fmtEUR(interest)}</div>
+        const items = payments.map(({ bond, payDate, payTs, interest, rate }) => {
+          const isPast = payTs < startOfToday;
+          return `
+          <div class="timeline-item ${isPast ? 'timeline-item--past' : ''}">
+            <div class="timeline-item-header">
+              <div class="timeline-item-title">${bond.name || bond.isin || 'Bond'}</div>
+              <div class="timeline-header-right">
+                ${isPast ? '<span class="timeline-badge timeline-badge--past">Past</span>' : ''}
+                <div class="timeline-amount">${fmtEUR(interest)}</div>
+              </div>
+            </div>
+            <div class="timeline-meta">
+              <span>Coupon ${rate.toFixed(2)}%</span>
+              <span>Nominal ${this.formatCurrency(bond.parValue || 0)}</span>
+              <span>Bank ${bond.depotBank || 'N/A'}</span>
+              <span>Payment ${fmtDate(payDate)}</span>
+            </div>
           </div>
-          <div class="timeline-meta">
-            <span>${bond.issuer || 'Unknown issuer'}</span>
-            <span>Coupon ${rate.toFixed(2)}%</span>
-            <span>Payment ${fmtDate(payDate)}</span>
-          </div>
-        </div>
-      `).join('');
+        `;
+        }).join('');
 
-      return `
-        <div class="timeline-year">
-          <div class="timeline-marker"></div>
-          <div class="timeline-year-header">
-            <div class="timeline-year-label">${year}</div>
-            <div class="timeline-year-total">${fmtEUR(total)}</div>
+        return `
+          <div class="timeline-year">
+            <div class="timeline-marker"></div>
+            <div class="timeline-year-header">
+              <div class="timeline-year-label">
+                <span class="timeline-toggle" aria-hidden="true">+</span>
+                <span>${year}</span>
+              </div>
+              <div class="timeline-year-total">${fmtEUR(total)}</div>
+            </div>
+            ${payments.length ? `<div class="timeline-items collapsed">${items}</div>` : `<div class="timeline-empty">No expected interest in ${year}.</div>`}
           </div>
-          ${payments.length ? `<div class="timeline-items">${items}</div>` : `<div class="timeline-empty">No expected interest in ${year}.</div>`}
-        </div>
-      `;
-    }).join('');
+        `;
+      }).join('');
 
     container.innerHTML = `<div class="timeline">${blocks}</div>`;
+
+    // Toggle details on click
+    container.querySelectorAll('.timeline-year').forEach(section => {
+      const header = section.querySelector('.timeline-year-header');
+      const items = section.querySelector('.timeline-items');
+      const toggle = section.querySelector('.timeline-toggle');
+      if (!header || !items) return;
+      const setState = (collapsed) => {
+        items.style.display = collapsed ? 'none' : 'block';
+        if (toggle) toggle.textContent = collapsed ? '+' : '-';
+      };
+      setState(true);
+      header.style.cursor = 'pointer';
+      header.addEventListener('click', () => {
+        const collapsed = items.classList.toggle('collapsed');
+        setState(collapsed);
+      });
+    });
   }
 
   showBondDetails(bond) {
@@ -814,4 +927,3 @@ createInterestChart() {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => { new PortfolioManager(); });
-

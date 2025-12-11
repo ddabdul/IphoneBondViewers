@@ -120,6 +120,27 @@
           <div class="card__body">
             <h3>Interest Timeline</h3>
             <p class="muted-copy">Projected coupon payments for the current and next year.</p>
+            <div class="filters-section">
+              <div class="filter-row">
+                <select class="form-control" id="interestIssuerFilter">
+                  <option value="">All Issuers</option>
+                </select>
+                <select class="form-control" id="interestDepotFilter">
+                  <option value="">All Depots</option>
+                </select>
+              </div>
+              <div class="filter-row">
+                <select class="form-control" id="interestYearFilter">
+                  <option value="">All Years</option>
+                </select>
+              </div>
+              <div class="filter-row">
+                <label class="toggle" style="display:flex; align-items:center; gap:.5rem;">
+                  <input type="checkbox" id="interestShowPast" />
+                  <span>Show past interest</span>
+                </label>
+              </div>
+            </div>
             <div id="interestTimeline"></div>
           </div>
         </div>

@@ -830,6 +830,9 @@ select.form-control {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
 }
 .timeline-year-total {
   font-weight: var(--font-weight-bold);
@@ -839,13 +842,14 @@ select.form-control {
 .timeline-items {
   display: flex;
   flex-direction: column;
-  gap: var(--space-10);
+  gap: 24px;
 }
 .timeline-item {
   background: var(--color-surface);
   border: 1px solid var(--color-card-border);
   border-radius: var(--radius-base);
-  padding: var(--space-12);
+  padding: var(--space-16);
+  margin-bottom: 4px;
   box-shadow: var(--shadow-sm);
 }
 .timeline-item-header {
@@ -854,6 +858,7 @@ select.form-control {
   justify-content: space-between;
   gap: var(--space-8);
 }
+.timeline-header-right { display: inline-flex; align-items: center; gap: var(--space-8); }
 .timeline-item-title {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
@@ -872,6 +877,41 @@ select.form-control {
   font-size: var(--font-size-sm);
 }
 .timeline-meta span { display: inline-flex; align-items: center; }
+.timeline-item--past {
+  opacity: 0.7;
+  border-style: dashed;
+  background: rgba(var(--color-info-rgb, 98,108,113), 0.08);
+}
+.timeline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+}
+.timeline-badge--past {
+  color: var(--color-text);
+  background: rgba(var(--color-warning-rgb, 168,75,47), 0.15);
+  border-color: rgba(var(--color-warning-rgb, 168,75,47), 0.3);
+}
+.timeline-toggle {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+}
+.timeline-items.collapsed { display: none; }
 .timeline-empty {
   padding: var(--space-12);
   border: 1px dashed var(--color-border);
