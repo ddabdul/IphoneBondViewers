@@ -789,6 +789,7 @@ createInterestChart() {
       style: 'currency', currency: 'EUR', maximumFractionDigits: 0
     }).format(v);
     const fmtDate = (d) => d.toLocaleDateString();
+    const fmtMonth = (d) => new Intl.DateTimeFormat('de-DE', { month: 'long' }).format(d);
 
       const blocks = years.map(year => {
         const payments = this.data.bonds
@@ -822,38 +823,67 @@ createInterestChart() {
 
         const total = payments.reduce((sum, p) => sum + p.interest, 0);
 
-        const items = payments.map(({ bond, payDate, payTs, interest, rate }) => {
-          const isPast = payTs < startOfToday;
-          return `
-          <div class="timeline-item ${isPast ? 'timeline-item--past' : ''}">
-            <div class="timeline-item-header">
-              <div class="timeline-item-title">${bond.name || bond.isin || 'Bond'}</div>
-              <div class="timeline-header-right">
-                ${isPast ? '<span class="timeline-badge timeline-badge--past">Past</span>' : ''}
-                <div class="timeline-amount">${fmtEUR(interest)}</div>
+        const paymentsByMonth = payments.reduce((acc, p) => {
+          const key = p.payDate.getMonth();
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(p);
+          return acc;
+        }, {});
+
+        const monthBlocks = Object.keys(paymentsByMonth)
+          .map(Number)
+          .sort((a, b) => a - b)
+          .map(monthIndex => {
+            const monthPayments = paymentsByMonth[monthIndex]
+              .sort((a, b) => a.payTs - b.payTs);
+            const monthTotal = monthPayments.reduce((sum, p) => sum + p.interest, 0);
+            const monthName = fmtMonth(new Date(year, monthIndex, 1));
+            const items = monthPayments.map(({ bond, payDate, payTs, interest, rate }) => {
+              const isPast = payTs < startOfToday;
+              return `
+                <div class="timeline-item ${isPast ? 'timeline-item--past' : ''}">
+                  <div class="timeline-item-header">
+                    <div class="timeline-item-title">${bond.name || bond.isin || 'Bond'}</div>
+                    <div class="timeline-header-right">
+                      ${isPast ? '<span class="timeline-badge timeline-badge--past">Past</span>' : ''}
+                      <div class="timeline-amount">${fmtEUR(interest)}</div>
+                    </div>
+                  </div>
+                  <div class="timeline-meta">
+                    <span>Coupon ${rate.toFixed(2)}%</span>
+                    <span>Nominal ${this.formatCurrency(bond.parValue || 0)}</span>
+                    <span>Bank ${bond.depotBank || 'N/A'}</span>
+                    <span>Payment ${fmtDate(payDate)}</span>
+                  </div>
+                </div>
+              `;
+            }).join('');
+
+            return `
+              <div class="timeline-month">
+                <div class="timeline-month-header">
+                  <div class="timeline-month-label">${monthName}</div>
+                  <div class="timeline-month-actions">
+                    <div class="timeline-month-total">${fmtEUR(monthTotal)}</div>
+                    <button type="button" class="timeline-month-toggle" aria-expanded="true">Hide</button>
+                  </div>
+                </div>
+                <div class="timeline-items">${items}</div>
               </div>
-            </div>
-            <div class="timeline-meta">
-              <span>Coupon ${rate.toFixed(2)}%</span>
-              <span>Nominal ${this.formatCurrency(bond.parValue || 0)}</span>
-              <span>Bank ${bond.depotBank || 'N/A'}</span>
-              <span>Payment ${fmtDate(payDate)}</span>
-            </div>
-          </div>
-        `;
-        }).join('');
+            `;
+          }).join('');
 
         return `
           <div class="timeline-year">
             <div class="timeline-marker"></div>
             <div class="timeline-year-header">
-              <div class="timeline-year-label">
-                <span class="timeline-toggle" aria-hidden="true">+</span>
-                <span>${year}</span>
+              <div class="timeline-year-label">${year}</div>
+              <div class="timeline-year-actions">
+                <div class="timeline-year-total">${fmtEUR(total)}</div>
+                <button type="button" class="timeline-toggle" aria-expanded="false">Show months</button>
               </div>
-              <div class="timeline-year-total">${fmtEUR(total)}</div>
             </div>
-            ${payments.length ? `<div class="timeline-items collapsed">${items}</div>` : `<div class="timeline-empty">No expected interest in ${year}.</div>`}
+            ${payments.length ? `<div class="timeline-months collapsed">${monthBlocks}</div>` : `<div class="timeline-empty">No expected interest in ${year}.</div>`}
           </div>
         `;
       }).join('');
@@ -863,14 +893,35 @@ createInterestChart() {
     // Toggle details on click
     container.querySelectorAll('.timeline-year').forEach(section => {
       const header = section.querySelector('.timeline-year-header');
-      const items = section.querySelector('.timeline-items');
+      const items = section.querySelector('.timeline-months');
       const toggle = section.querySelector('.timeline-toggle');
       if (!header || !items) return;
       const setState = (collapsed) => {
         items.style.display = collapsed ? 'none' : 'block';
-        if (toggle) toggle.textContent = collapsed ? '+' : '-';
+        if (toggle) {
+          toggle.textContent = collapsed ? 'Show months' : 'Hide months';
+          toggle.setAttribute('aria-expanded', String(!collapsed));
+        }
       };
       setState(true);
+      header.style.cursor = 'pointer';
+      header.addEventListener('click', () => {
+        const collapsed = items.classList.toggle('collapsed');
+        setState(collapsed);
+      });
+    });
+
+    container.querySelectorAll('.timeline-month').forEach(section => {
+      const header = section.querySelector('.timeline-month-header');
+      const items = section.querySelector('.timeline-items');
+      const toggle = section.querySelector('.timeline-month-toggle');
+      if (!header || !items || !toggle) return;
+      const setState = (collapsed) => {
+        items.style.display = collapsed ? 'none' : 'block';
+        toggle.textContent = collapsed ? 'Show' : 'Hide';
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+      };
+      setState(false);
       header.style.cursor = 'pointer';
       header.addEventListener('click', () => {
         const collapsed = items.classList.toggle('collapsed');
