@@ -789,7 +789,7 @@ createInterestChart() {
       style: 'currency', currency: 'EUR', maximumFractionDigits: 0
     }).format(v);
     const fmtDate = (d) => d.toLocaleDateString();
-    const fmtMonth = (d) => new Intl.DateTimeFormat('de-DE', { month: 'long' }).format(d);
+    const fmtMonth = (d) => new Intl.DateTimeFormat('en-US', { month: 'long' }).format(d);
 
       const blocks = years.map(year => {
         const payments = this.data.bonds
