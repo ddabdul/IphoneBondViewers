@@ -564,6 +564,19 @@ select.form-control {
 .bond-header, .etf-header, .transaction-header {
   display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-12);
 }
+.dashboard-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.dashboard-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
 .bond-name, .etf-name, .transaction-type { font-weight: var(--font-weight-semibold); color: var(--color-text); font-size: var(--font-size-md); line-height: var(--line-height-tight); }
 .bond-yield, .etf-price, .transaction-amount { font-weight: var(--font-weight-bold); color: var(--color-primary); font-size: var(--font-size-lg); }
 .bond-details, .etf-details, .transaction-details { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); font-size: var(--font-size-sm); }

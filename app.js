@@ -7,7 +7,8 @@ class PortfolioManager {
     this.currentTab = 'dashboard';
     this.filters = {
       bonds: { search: '', issuer: '', depot: '', year: '', excludeMatured: true },
-      interest: { issuer: '', depot: '', year: '', showPast: false }
+      interest: { issuer: '', depot: '', year: '', showPast: false },
+      dashboard: { banks: [], excludedBondKeys: [] }
     };
 
     // CACHE KEYS
@@ -62,6 +63,30 @@ class PortfolioManager {
     return t >= startOfYear;
   }
 
+  getBondKey(bond) {
+    return String(
+      bond.id ||
+      bond.isin ||
+      `${bond.name || 'bond'}|${bond.maturityDate || ''}|${bond.depotBank || ''}|${bond.issuer || ''}`
+    );
+  }
+
+  isBondIncludedInDashboard(bond) {
+    const key = this.getBondKey(bond);
+    return !(this.filters.dashboard.excludedBondKeys || []).includes(key);
+  }
+
+  toggleBondInDashboard(bond, includeInDashboard) {
+    const key = this.getBondKey(bond);
+    const excluded = new Set(this.filters.dashboard.excludedBondKeys || []);
+    if (includeInDashboard) excluded.delete(key);
+    else excluded.add(key);
+    this.filters.dashboard.excludedBondKeys = [...excluded];
+    this.calculateStats();
+    this.updateStats();
+    this.updateCharts();
+  }
+
   init() {
     this.setupEventListeners();
 
@@ -110,6 +135,7 @@ class PortfolioManager {
     const interestDepotFilter = document.getElementById('interestDepotFilter');
     const interestYearFilter = document.getElementById('interestYearFilter');
     const interestShowPast = document.getElementById('interestShowPast');
+    const dashboardBankFilter = document.getElementById('dashboardBankFilter');
 
     if (bondSearch)  bondSearch.addEventListener('input', e => this.updateFilter('bonds', 'search', e.target.value));
     if (issuerFilter) issuerFilter.addEventListener('change', e => this.updateFilter('bonds', 'issuer', e.target.value));
@@ -119,6 +145,12 @@ class PortfolioManager {
     if (interestDepotFilter) interestDepotFilter.addEventListener('change', e => this.updateFilter('interest', 'depot', e.target.value));
     if (interestYearFilter) interestYearFilter.addEventListener('change', e => this.updateFilter('interest', 'year', e.target.value));
     if (interestShowPast) interestShowPast.addEventListener('change', e => this.updateFilter('interest', 'showPast', e.target.checked));
+    if (dashboardBankFilter) {
+      dashboardBankFilter.addEventListener('change', e => {
+        const selectedBanks = [...e.target.selectedOptions].map(option => option.value).filter(Boolean);
+        this.updateFilter('dashboard', 'banks', selectedBanks);
+      });
+    }
 
     if (excludeToggle) {
       this.filters.bonds.excludeMatured = !!excludeToggle.checked;
@@ -254,7 +286,7 @@ class PortfolioManager {
 
   // -------- Stats (bonds only) --------
   calculateStats() {
-    const activeBonds = this.getActiveBonds(new Date());
+    const activeBonds = this.getDashboardBonds(new Date());
     const totalPrincipal = activeBonds.reduce((sum, b) => sum + (b.parValue || 0), 0);
     const averageYield = activeBonds.length
       ? activeBonds.reduce((s, b) => s + (b.yieldToMaturity || 0), 0) / activeBonds.length
@@ -268,6 +300,7 @@ class PortfolioManager {
   }
 
   updateUI() {
+    this.updateDashboardFilters();
     this.updateStats();
     this.updateCharts();
     this.updateFilters();
@@ -287,7 +320,7 @@ class PortfolioManager {
     if (avgYieldEl)     avgYieldEl.textContent = (averageYield ?? 0).toFixed(2) + '%';
   }
 
- updateCharts() {
+updateCharts() {
   // If you no longer use the doughnut chart, ensure itâ€™s destroyed
   if (this.charts.composition) { this.charts.composition.destroy(); this.charts.composition = null; }
   if (this.charts.interest)    { this.charts.interest.destroy();    this.charts.interest    = null; }
@@ -300,6 +333,17 @@ class PortfolioManager {
     });
   });
 }
+
+  getDashboardBonds(asOf = new Date()) {
+    let bonds = this.getActiveBonds(asOf);
+    const selectedBanks = this.filters.dashboard.banks || [];
+    const excludedKeys = new Set(this.filters.dashboard.excludedBondKeys || []);
+    bonds = bonds.filter(b => !excludedKeys.has(this.getBondKey(b)));
+    if (selectedBanks.length) {
+      bonds = bonds.filter(b => selectedBanks.includes(b.depotBank));
+    }
+    return bonds;
+  }
 
 
   // Composition: active bonds by par per issuer
@@ -336,7 +380,7 @@ class PortfolioManager {
       const container = document.getElementById('maturityTableContainer');
       if (!container) return;
     
-      const active = this.getActiveBonds();
+      const active = this.getDashboardBonds();
       if (!active.length) {
         container.innerHTML = `<div class="empty-table">No upcoming maturities.</div>`;
         return;
@@ -423,7 +467,7 @@ class PortfolioManager {
   const container = document.getElementById('issuerBreakdownContainer');
   if (!container) return;
 
-  const active = this.getActiveBonds();
+  const active = this.getDashboardBonds();
   if (!active.length) {
     container.innerHTML = `<div class="empty-table">No active bonds.</div>`;
     return;
@@ -578,6 +622,21 @@ class PortfolioManager {
     if (pastToggle) pastToggle.checked = !!this.filters.interest.showPast;
   }
 
+  updateDashboardFilters() {
+    const bankSelect = document.getElementById('dashboardBankFilter');
+    if (!bankSelect) return;
+
+    const activeBonds = this.getActiveBonds();
+    const banks = [...new Set(activeBonds.map(b => b.depotBank).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const selectedBanks = (this.filters.dashboard.banks || []).filter(bank => banks.includes(bank));
+    this.filters.dashboard.banks = selectedBanks;
+
+    bankSelect.innerHTML = banks.map(bank => `<option value="${bank}">${bank}</option>`).join('');
+    [...bankSelect.options].forEach(option => {
+      option.selected = selectedBanks.includes(option.value);
+    });
+  }
+
   switchTab(tabName) {
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     const activeNavItem = document.querySelector(`[data-tab="${tabName}"]`);
@@ -600,6 +659,10 @@ class PortfolioManager {
     if (type === 'bonds') {
       if (filterName === 'excludeMatured') this.updateFilters();
       this.renderBonds();
+    } else if (type === 'dashboard') {
+      this.calculateStats();
+      this.updateStats();
+      this.updateCharts();
     } else if (type === 'interest') {
       this.renderInterestTimeline();
     }
@@ -643,17 +706,30 @@ class PortfolioManager {
 
     container.innerHTML = bonds.map(b => this.createBondCard(b)).join('');
     container.querySelectorAll('.bond-card').forEach((card, i) => {
-      card.addEventListener('click', () => this.showBondDetails(bonds[i]));
+      card.addEventListener('click', e => {
+        if (e.target.closest('.dashboard-toggle')) return;
+        this.showBondDetails(bonds[i]);
+      });
+    });
+    container.querySelectorAll('.dashboard-toggle input[type="checkbox"]').forEach((checkbox, i) => {
+      checkbox.addEventListener('change', e => {
+        this.toggleBondInDashboard(bonds[i], e.target.checked);
+      });
     });
   }
 
   createBondCard(bond) {
     const isActive = this.isBondActive(bond);
     const maturityDate = new Date(bond.maturityDate).toLocaleDateString();
+    const includeInDashboard = this.isBondIncludedInDashboard(bond);
     return `
       <div class="bond-card">
         <div class="bond-header">
           <div class="bond-name">${bond.name}</div>
+          <label class="dashboard-toggle">
+            <input type="checkbox" ${includeInDashboard ? 'checked' : ''} />
+            <span>Dashboard</span>
+          </label>
         </div>
         <div class="bond-details">
           <div class="detail-item">
@@ -687,7 +763,7 @@ createInterestChart() {
   const canvas = document.getElementById('interestChart');
   if (!canvas) return;
 
-  const active = this.getActiveBonds();
+  const active = this.getDashboardBonds();
   if (active.length === 0) return;
 
   // Build yearly interest map and sorted labels
